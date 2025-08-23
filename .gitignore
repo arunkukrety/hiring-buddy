@@ -24,6 +24,7 @@ MANIFEST
 *.pdf
 /ref
 /output
+*.txt
 
 # Virtual environments
 .venv/

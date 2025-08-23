@@ -24,9 +24,12 @@ A dynamic resume analysis system built with Portia AI that can parse any resume 
 ### GitHub Analysis
 - **Profile Information**: Name, bio, location, company, website
 - **Activity Metrics**: Public repos, followers, following, account age
-- **Code Analysis**: Programming languages used, commit frequency
-- **Project Assessment**: Consistency, collaboration level, code quality
-- **Technical Depth**: Overall activity score and technical assessment
+- **Contribution Analysis**: Track activity within date ranges, commit patterns
+- **Intelligent Repository Filtering**: Skip trivial repos, prioritize meaningful projects
+- **Adaptive Scanning**: README analysis with fallback to structure inference
+- **Relevance Scoring**: High/Medium/Low categories based on multiple factors
+- **Code Quality Indicators**: Community interest, documentation, project complexity
+- **Comprehensive Reporting**: Structured JSON with actionable insights
 
 ## 🛠️ Installation
 
@@ -65,10 +68,10 @@ python main.py
 python main.py
 ```
 
-### Test GitHub Agent
+### Test Smart GitHub Agent
 ```bash
-# Test GitHub profile analysis functionality
-python test_github_agent.py
+# Test comprehensive GitHub profile analysis functionality
+python test_smart_github_agent.py
 ```
 
 ## 📁 Project Structure
@@ -78,7 +81,6 @@ GithubPortia/
 ├── main.py                     # Main entry point
 ├── agents/                     # Agent modules
 │   ├── __init__.py
-│   ├── llm_resume_parser.py    # LLM-based resume parser
 │   ├── planner_agent.py        # Planning agent for analysis
 │   ├── github_agent.py         # GitHub profile analysis agent
 │   └── resume_agent.py         # Resume analysis logic
@@ -90,7 +92,7 @@ GithubPortia/
 │   ├── __init__.py
 │   ├── tools.py                # General tools
 │   ├── github_scanner.py       # GitHub profile scanner
-│   └── resume_parser.py        # Resume text extractor
+│   └── resume_parser.py        # Comprehensive resume parser (text + LLM)
 ├── env.example                 # Environment variables template
 ├── pyproject.toml              # Project configuration
 └── README.md                   # This file
@@ -128,6 +130,8 @@ DYNAMIC RESUME ANALYSIS RESULTS
   • Languages: JavaScript, Python, Go
   • Commit Frequency: High
   • Project Consistency: Excellent
+  • High-Relevance Repos: 3 analyzed, 2 skipped
+  • Repository Quality: Well-documented projects with community interest
 
 🎯 OVERALL ASSESSMENT:
   Strong candidate - Has educational background, Has 3 work experiences, Has 4 projects, Has 9 primary skills

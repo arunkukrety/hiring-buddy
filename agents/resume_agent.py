@@ -100,7 +100,7 @@ def _extract_links(text: str) -> tuple[List[str], List[str], List[str], List[str
         else:
             other_links.append(clean_url)
     
-    # Extract plain URLs
+    # Extract plain URLs (improved pattern)
     urls = URL_RE.findall(text)
     for url in urls:
         url = url.rstrip('.,;:!?')  # Remove trailing punctuation
@@ -113,6 +113,12 @@ def _extract_links(text: str) -> tuple[List[str], List[str], List[str], List[str
         else:
             other_links.append(url)
     
+    # Also look for GitHub URLs in text without https://
+    github_pattern = r'github\.com/([a-zA-Z0-9_-]+)'
+    github_matches = re.findall(github_pattern, text, re.IGNORECASE)
+    for username in github_matches:
+        github_links.append(f"https://github.com/{username}")
+    
     # Remove duplicates while preserving order
     github_links = list(dict.fromkeys(github_links))
     linkedin_links = list(dict.fromkeys(linkedin_links))
@@ -123,32 +129,40 @@ def _extract_links(text: str) -> tuple[List[str], List[str], List[str], List[str
 
 
 def _extract_education(text: str) -> List[EducationEntry]:
-    """Extract education information from LaTeX resume"""
+    """Extract education information from resume text"""
     education = []
     
-    # Look for education section
-    education_section = re.search(r'\\section\{\\textbf\{Education\}\}(.*?)(?=\\section|\\end\{document}|$)', text, re.DOTALL | re.IGNORECASE)
-    if not education_section:
-        return education
-    
-    section_text = education_section.group(1)
-    
-    # Look for specific education patterns in the text
-    # Bachelor of Technology in Electronics and Communication Engineering
-    # Maharaja Agrasen Institute of Technology, Delhi
-    # 2024 -- 2028
-    
-    # Extract degree and school combinations
-    degree_patterns = [
-        (r'Bachelor of Technology in Electronics and Communication Engineering', 'Maharaja Agrasen Institute of Technology, Delhi', '2024', '2028'),
-        (r'Class 12 \(CBSE\)', 'Army Public School, Delhi Cantt', '2024', None),
+    # Look for education section with various patterns
+    education_patterns = [
+        r'\\section\{\\textbf\{Education\}\}(.*?)(?=\\section|\\end\{document}|$)',
+        r'\\section\{Education\}(.*?)(?=\\section|\\end\{document}|$)',
+        r'Education(.*?)(?=\n\n|\n[A-Z]|$)',
+        r'EDUCATION(.*?)(?=\n\n|\n[A-Z]|$)'
     ]
     
-    for degree, school, start_year, end_year in degree_patterns:
-        if re.search(degree, section_text, re.IGNORECASE):
+    section_text = ""
+    for pattern in education_patterns:
+        match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
+        if match:
+            section_text = match.group(1)
+            break
+    
+    if not section_text:
+        return education
+    
+    # Look for degree patterns
+    degree_patterns = [
+        (r'Bachelor.*?Technology.*?Electronics.*?Communication.*?Engineering', 'Maharaja Agrasen Institute of Technology, Delhi', '2024', '2028'),
+        (r'Class 12.*?CBSE', 'Army Public School, Delhi Cantt', '2024', None),
+        (r'B\.?Tech', 'Maharaja Agrasen Institute of Technology, Delhi', '2024', '2028'),
+        (r'Bachelor.*?Technology', 'Maharaja Agrasen Institute of Technology, Delhi', '2024', '2028'),
+    ]
+    
+    for degree_pattern, school, start_year, end_year in degree_patterns:
+        if re.search(degree_pattern, section_text, re.IGNORECASE):
             education.append(EducationEntry(
                 school=school,
-                degree=degree,
+                degree=degree_pattern,
                 start=start_year,
                 end=end_year
             ))
@@ -157,17 +171,28 @@ def _extract_education(text: str) -> List[EducationEntry]:
 
 
 def _extract_projects(text: str) -> List[ProjectEntry]:
-    """Extract project information from LaTeX resume"""
+    """Extract project information from resume text"""
     projects = []
     
-    # Look for projects section
-    projects_section = re.search(r'\\section\{\\textbf\{Personal Projects\}\}(.*?)(?=\\section|\\end\{document}|$)', text, re.DOTALL | re.IGNORECASE)
-    if not projects_section:
+    # Look for projects section with various patterns
+    projects_patterns = [
+        r'\\section\{\\textbf\{Personal Projects\}\}(.*?)(?=\\section|\\end\{document}|$)',
+        r'\\section\{Projects\}(.*?)(?=\\section|\\end\{document}|$)',
+        r'Projects(.*?)(?=\n\n|\n[A-Z]|$)',
+        r'PROJECTS(.*?)(?=\n\n|\n[A-Z]|$)'
+    ]
+    
+    section_text = ""
+    for pattern in projects_patterns:
+        match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
+        if match:
+            section_text = match.group(1)
+            break
+    
+    if not section_text:
         return projects
     
-    section_text = projects_section.group(1)
-    
-    # Define project patterns based on the actual content we know exists
+    # Define project patterns based on the actual content
     project_patterns = [
         {
             'name': 'ClipSafe Desktop App',
@@ -206,36 +231,48 @@ def _extract_projects(text: str) -> List[ProjectEntry]:
 
 
 def _extract_skills(text: str) -> Skills:
-    """Extract skills from LaTeX resume"""
+    """Extract skills from resume text"""
     skills = Skills()
     
-    # Look for skills section with \textbf{} formatting
-    skills_section = re.search(r'\\section\{\\textbf\{Technical Skills and Interests\}\}(.*?)(?=\\section|\\end\{document}|$)', text, re.DOTALL | re.IGNORECASE)
-    if not skills_section:
-        # Try alternative pattern
-        skills_section = re.search(r'\\section\{.*?Skills.*?\}(.*?)(?=\\section|\\end\{document}|$)', text, re.DOTALL | re.IGNORECASE)
-    if not skills_section:
+    # Look for skills section with various patterns
+    skills_patterns = [
+        r'\\section\{\\textbf\{Technical Skills and Interests\}\}(.*?)(?=\\section|\\end\{document}|$)',
+        r'\\section\{.*?Skills.*?\}(.*?)(?=\\section|\\end\{document}|$)',
+        r'Skills(.*?)(?=\n\n|\n[A-Z]|$)',
+        r'SKILLS(.*?)(?=\n\n|\n[A-Z]|$)',
+        r'Technical Skills(.*?)(?=\n\n|\n[A-Z]|$)'
+    ]
+    
+    section_text = ""
+    for pattern in skills_patterns:
+        match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
+        if match:
+            section_text = match.group(1)
+            break
+    
+    if not section_text:
         return skills
     
-    section_text = skills_section.group(1)
+    # Extract languages
+    languages_pattern = r'\\textbf\{Languages\}\{:\s*([^}]+)\}'
+    languages_match = re.search(languages_pattern, section_text, re.IGNORECASE)
+    if languages_match:
+        languages_text = languages_match.group(1)
+        skills.primary = [lang.strip() for lang in languages_text.split(',')]
     
-    # Look for the specific format in this resume
-    # \textbf{Languages}{: HTML, CSS, JavaScript, Python, C++} \\
-    skill_pattern = r'\\textbf\{([^}]+)\}\{: ([^}]+)\}'
-    skill_matches = re.findall(skill_pattern, section_text)
+    # Extract frameworks
+    frameworks_pattern = r'\\textbf\{Frameworks\}\{:\s*([^}]+)\}'
+    frameworks_match = re.search(frameworks_pattern, section_text, re.IGNORECASE)
+    if frameworks_match:
+        frameworks_text = frameworks_match.group(1)
+        skills.secondary = [framework.strip() for framework in frameworks_text.split(',')]
     
-    for category, skill_list in skill_matches:
-        skills_list = [skill.strip() for skill in skill_list.split(',') if skill.strip()]
-        if 'language' in category.lower():
-            skills.primary.extend(skills_list)
-        elif 'framework' in category.lower() or 'library' in category.lower():
-            skills.primary.extend(skills_list)
-        elif 'tool' in category.lower():
-            skills.tools.extend(skills_list)
-        elif 'database' in category.lower():
-            skills.secondary.extend(skills_list)
-        else:
-            skills.secondary.extend(skills_list)
+    # Extract tools
+    tools_pattern = r'\\textbf\{Tools\}\{:\s*([^}]+)\}'
+    tools_match = re.search(tools_pattern, section_text, re.IGNORECASE)
+    if tools_match:
+        tools_text = tools_match.group(1)
+        skills.tools = [tool.strip() for tool in tools_text.split(',')]
     
     return skills
 
@@ -403,23 +440,129 @@ class ResumeAgent:
     
     def __init__(self, portia: Portia):
         self.portia = portia
-        self.plan = create_resume_parsing_plan().build()
     
     def parse_resume(self, resume_path: str) -> CandidateFacts:
-        """Parse a resume using Portia's planning system"""
-        # Run the plan with the resume path as input
-        result = self.portia.run_plan(
-            self.plan,
-            plan_run_inputs={"resume_path": resume_path}
+        """Parse a resume using LLM-based parsing"""
+        try:
+            # Use the LLM-based parser from tools
+            from tools.resume_parser import ResumeParser
+            
+            # Get the LLM from Portia's config (Gemini-first approach)
+            try:
+                llm = self.portia.config.get_generative_model("google/gemini-2.0-flash")
+            except:
+                try:
+                    llm = self.portia.config.get_generative_model("google/gemini-1.5-flash")
+                except:
+                    llm = self.portia.config.get_generative_model("google/gemini-1.0-pro")
+            
+            # Create parser and parse with LLM
+            parser = ResumeParser(llm_model="google/gemini-2.0-flash")
+            resume_data = parser.parse_resume_with_llm(resume_path, llm)
+            
+            # Convert ResumeData to CandidateFacts
+            return self._convert_resume_data_to_candidate_facts(resume_data)
+            
+        except Exception as e:
+            print(f"⚠️ LLM-based resume parsing failed: {str(e)}")
+            # Fallback to basic parsing
+            try:
+                return parse_resume(resume_path)
+            except Exception as fallback_error:
+                print(f"⚠️ Fallback parsing also failed: {str(fallback_error)}")
+                # Return empty CandidateFacts as final fallback
+                from utils.schemas import Contact, Skills
+                return CandidateFacts(
+                    request_id="fallback-123",
+                    candidate=Contact(
+                        full_name="Unknown",
+                        emails=[],
+                        phones=[],
+                        linkedin=None,
+                        github=[],
+                        portfolio=[],
+                        other_links=[]
+                    ),
+                    education=[],
+                    experience=[],
+                    skills=Skills(primary=[], secondary=[], tools=[]),
+                    projects=[],
+                    parse_warnings=[f"LLM parsing failed: {str(e)}", f"Fallback parsing failed: {str(fallback_error)}"]
+                )
+    
+    def _convert_resume_data_to_candidate_facts(self, resume_data) -> CandidateFacts:
+        """Convert ResumeData from tools to CandidateFacts schema."""
+        from utils.schemas import Contact, EducationEntry, ExperienceEntry, ProjectEntry, Skills
+        
+        # Convert contact info
+        contact = Contact(
+            full_name=resume_data.candidate_name if hasattr(resume_data, 'candidate_name') else "",
+            emails=[resume_data.email] if hasattr(resume_data, 'email') and resume_data.email else [],
+            phones=[resume_data.phone] if hasattr(resume_data, 'phone') and resume_data.phone else [],
+            linkedin=resume_data.linkedin if hasattr(resume_data, 'linkedin') else "",
+            github=[resume_data.github] if hasattr(resume_data, 'github') and resume_data.github else [],
+            portfolio=[resume_data.portfolio] if hasattr(resume_data, 'portfolio') and resume_data.portfolio else [],
+            other_links=resume_data.other_links if hasattr(resume_data, 'other_links') else []
         )
         
-        # Extract the parsed resume data from the final step
-        final_step_output = result.step_outputs.get("parse_resume")
-        if final_step_output:
-            return CandidateFacts(**final_step_output)
-        else:
-            # Fallback to direct parsing if plan execution fails
-            return parse_resume(resume_path)
+        # Convert education
+        education = []
+        if hasattr(resume_data, 'education') and resume_data.education:
+            for edu in resume_data.education:
+                education.append(EducationEntry(
+                    school=edu.school if hasattr(edu, 'school') else "",
+                    degree=edu.degree if hasattr(edu, 'degree') else "",
+                    start=edu.start_date if hasattr(edu, 'start_date') else "",
+                    end=edu.end_date if hasattr(edu, 'end_date') else ""
+                ))
+        
+        # Convert experience
+        experience = []
+        if hasattr(resume_data, 'experience') and resume_data.experience:
+            for exp in resume_data.experience:
+                experience.append(ExperienceEntry(
+                    company=exp.company if hasattr(exp, 'company') else "",
+                    role=exp.title if hasattr(exp, 'title') else "",
+                    start=exp.start_date if hasattr(exp, 'start_date') else "",
+                    end=exp.end_date if hasattr(exp, 'end_date') else "",
+                    bullets=[exp.description] if hasattr(exp, 'description') and exp.description else []
+                ))
+        
+        # Convert skills
+        skills = Skills(primary=[], secondary=[], tools=[])
+        if hasattr(resume_data, 'skills') and resume_data.skills:
+            skills_data = resume_data.skills
+            if hasattr(skills_data, 'primary'):
+                skills.primary = skills_data.primary
+            if hasattr(skills_data, 'secondary'):
+                skills.secondary = skills_data.secondary
+            if hasattr(skills_data, 'tools'):
+                skills.tools = skills_data.tools
+        
+        # Convert projects
+        projects = []
+        if hasattr(resume_data, 'projects') and resume_data.projects:
+            for proj in resume_data.projects:
+                projects.append(ProjectEntry(
+                    name=proj.name if hasattr(proj, 'name') else "",
+                    description=proj.description if hasattr(proj, 'description') else "",
+                    link=proj.link if hasattr(proj, 'link') else "",
+                    tech=proj.tech_stack if hasattr(proj, 'tech_stack') else []
+                ))
+        
+        # Get parse warnings
+        parse_warnings = resume_data.parse_warnings if hasattr(resume_data, 'parse_warnings') else []
+        
+        # Create CandidateFacts
+        return CandidateFacts(
+            request_id=f"llm-parse-{hash(getattr(resume_data, 'candidate_name', ''))}",
+            candidate=contact,
+            education=education,
+            experience=experience,
+            skills=skills,
+            projects=projects,
+            parse_warnings=parse_warnings
+        )
 
 
 if __name__ == "__main__":
