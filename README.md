@@ -18,11 +18,28 @@ End‑to‑end automated hiring workflow in under 5 minutes (click thumbnail to 
 
 ## What is HireBuddy?
 
-HireBuddy is an intelligent hiring assistant that completely automates candidate evaluation. It analyzes resumes, scans GitHub profiles, matches candidates to job requirements, and even schedules interviews - all powered by advanced AI.
+HireBuddy is a lean AI agent system that turns an uploaded resume + job description into a scored, evidence‑backed hiring decision (and optional scheduled interview) in minutes.
 
-**The Problem**: Manual resume screening takes hours per candidate, GitHub analysis is inconsistent, and scheduling interviews involves endless email chains.
+**Problem**
+Early‑stage screening is slow, subjective, and fragmented:
+- Manual resume parsing is repetitive
+- GitHub review (if done) is shallow or skipped
+- Match rationale is rarely documented
+- Scheduling and email follow‑ups burn time
 
-**The Solution**: HireBuddy processes everything automatically, providing detailed candidate insights with match scores, GitHub analysis, and one-click interview scheduling.
+**Crux**
+Hiring teams need fast, consistent, explainable evaluation without adding another bloated platform.
+
+**Solution**
+Multi‑agent workflow (Resume, GitHub, Matching, Scheduler) powered by Portia AI:
+- Extracts structured candidate profile
+- Performs deep GitHub repo + activity relevance analysis
+- Generates transparent weighted match score with reasons
+- Streams every step for trust (no hidden black box)
+- Optionally drafts emails & books the interview
+
+**How It Solves It**
+Automation compresses hours of fragmented manual work into a single deterministic flow: ingest → enrich → score → decide → communicate. Standardized scoring + captured rationale reduce bias and create an auditable trail while preserving recruiter judgment at the decision gate.
 
 ## System Architecture
 
@@ -42,6 +59,41 @@ HireBuddy uses a multi-agent architecture where specialized AI agents collaborat
 - **Scheduler Agent** - Handles interview scheduling with Google Calendar and email automation
 
 Each agent specializes in their domain while the supervisor coordinates the entire evaluation process.
+
+## Portia AI Core (How We Use It)
+
+Portia AI is the backbone of this project. Every agent you see (planner/supervisor, resume, GitHub, scheduler) is a Portia agent. Portia handles:
+- Orchestrating the exact order of steps (no ad‑hoc scripts)
+- Passing structured outputs from one agent/tool to the next (shared context)
+- Managing tool calls (so code just declares intent, not plumbing)
+- Streaming intermediate status so the UI shows real progress
+- Containing failures (a later step can still run if an earlier non‑critical tool partially fails)
+
+### Where Portia AI Is Used in the Flow
+1. Upload → planner stores raw files in context
+2. Resume parsing tool -> structured candidate profile added to context
+3. GitHub scan tool -> repos, languages, activity added
+4. Matching + assessment tools -> scores + reasoning objects
+5. Decision + email/scheduling -> scheduler tool prepares calendar + message artifacts
+6. Tracking tool appends final decision for audit
+
+### Portia Agent Roles (Plain Words)
+- Planner: decides next step, merges results, builds the final narrative
+- Resume Agent: extracts clean structured data (skills, experience, education)
+- GitHub Agent: pulls profile + repos + contribution signals, filters relevance
+- Scheduler Agent: prepares interview invite artifacts (email text, calendar details)
+
+### Tools We Call Through Portia
+- resume_parser: multi‑library text extraction + normalization
+- github_scanner: GraphQL + heuristic repo relevance & activity metrics
+- job_matcher: compares candidate skill/profile vectors to job requirements
+- assessment_generator: composes weighted scoring + reasoning breakdown
+- candidate_tracker: persists decision row (CSV/JSON)
+- code / repository analyzers (where enabled): language spread, complexity hints
+- calendar/email integration (via scheduler) for final scheduling output
+
+### Why Portia Fits Here
+Simple: we needed a clean multi‑agent pipeline without writing custom orchestration glue. Portia gives shared state, consistent tool wiring, retry hooks, and streaming out of the box—so we focus on the actual evaluation logic instead of framework code.
 
 ## Core Features
 
