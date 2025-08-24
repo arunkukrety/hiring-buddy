@@ -10,7 +10,7 @@
 
 </div>
 
-## Live Demo
+## Live Demo (Click to Watch)
 
 [![Watch HireBuddy in Action](https://img.youtube.com/vi/ABo2hvASLmk/hqdefault.jpg)](https://www.youtube.com/watch?v=ABo2hvASLmk "HireBuddy End-to-End Demo")
 
@@ -28,7 +28,7 @@ HireBuddy is an intelligent hiring assistant that completely automates candidate
 
 ![Architecture Diagram](arch.png)
 
-### Architecture Walkthrough Video
+### Architecture Walkthrough Video (Click to Watch)
 
 [![Architecture Deep Dive](https://img.youtube.com/vi/gjOww3AcLLw/hqdefault.jpg)](https://www.youtube.com/watch?v=gjOww3AcLLw "Architecture Deep Dive")
 
