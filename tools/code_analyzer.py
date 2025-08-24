@@ -17,8 +17,6 @@ class CodeAnalyzer:
         if not relevant_repos:
             return {}
         
-        print(f"🔍 Performing deep code analysis on {len(relevant_repos)} relevant repositories...")
-        
         # get repository names for deep analysis
         repo_names = [repo.name for repo in relevant_repos]
         

@@ -19,37 +19,41 @@ class GitHubAgent:
     
     def __init__(self, portia: Portia):
         self.portia = portia
-        self.scanner = GitHubScanner()
+        try:
+            self.scanner = GitHubScanner()
+            print("✅ GitHub scanner initialized successfully")
+        except Exception as e:
+            print(f"❌ Failed to initialize GitHub scanner: {str(e)}")
+            self.scanner = None
     
     def analyze_github_profile(self, github_url: str) -> GitHubProfileData:
         """Analyze a GitHub profile and return comprehensive data."""
         
-        print(f"🐙 Analyzing GitHub profile: {github_url}")
-        
         if not self.scanner:
-            print("⚠️ GitHub scanner not available")
             return self._create_empty_profile_data(github_url)
         
         try:
             # extract username from URL
             username = self._extract_username_from_url(github_url)
             if not username:
-                print("❌ Could not extract username from GitHub URL")
+                print(f"❌ Could not extract username from URL: {github_url}")
                 return self._create_empty_profile_data(github_url)
+            
+            print(f"🔍 Analyzing GitHub profile for username: {username}")
             
             # get comprehensive profile data
             profile_data = self.scanner.scan_profile_comprehensive(username)
             
             if profile_data:
-                print(f"✅ Successfully analyzed GitHub profile for {username}")
+                print(f"✅ Successfully retrieved GitHub data for {username}")
                 # convert dictionary to GitHubProfileData schema
                 return self._convert_to_github_profile_data(profile_data, github_url)
             else:
-                print("⚠️ No profile data returned from scanner")
+                print(f"❌ No profile data returned for {username}")
                 return self._create_empty_profile_data(github_url)
                 
         except Exception as e:
-            print(f"❌ Error analyzing GitHub profile: {str(e)}")
+            print(f"❌ Error analyzing GitHub profile {github_url}: {str(e)}")
             return self._create_empty_profile_data(github_url)
     
     def get_comprehensive_profile(self, github_url: str) -> GitHubProfileData:
@@ -65,14 +69,10 @@ class GitHubAgent:
             return {"error": "GitHub scanner not available"}
         
         try:
-            print(f"🔍 Performing deep analysis on {len(repository_names)} repositories...")
-            
             # use the scanner to analyze specific repositories
             analysis_results = {}
             
             for repo_name in repository_names:
-                print(f"  📁 Analyzing repository: {repo_name}")
-                
                 # get repository details
                 repo_data = self.scanner.get_repository_data(username, repo_name)
                 if repo_data:
@@ -92,7 +92,6 @@ class GitHubAgent:
             }
             
         except Exception as e:
-            print(f"❌ Error in deep repository analysis: {str(e)}")
             return {"error": f"Analysis failed: {str(e)}"}
     
     def _analyze_repository_code_deep(self, repo_data: Dict[str, Any], job_description) -> Dict[str, Any]:

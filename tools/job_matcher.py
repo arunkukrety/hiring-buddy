@@ -3,7 +3,7 @@
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional, List, Dict
+from typing import Any, Optional, List, Dict, TYPE_CHECKING
 
 from pydantic import BaseModel
 
@@ -12,7 +12,10 @@ from portia.builder.plan_builder_v2 import PlanBuilderV2
 from portia.builder.reference import Input
 
 from utils.schemas import JobDescription, RepositoryAnalysis, CandidateFacts
-from agents.github_agent import GitHubProfileData
+
+# Use TYPE_CHECKING to avoid circular imports
+if TYPE_CHECKING:
+    from agents.github_agent import GitHubProfileData
 
 
 class JobMatchResult(BaseModel):
@@ -20,7 +23,7 @@ class JobMatchResult(BaseModel):
     
     candidate_info: dict[str, Any]
     job_description: JobDescription
-    github_analysis: Optional[GitHubProfileData] = None
+    github_analysis: Optional[Any] = None  # GitHubProfileData to avoid circular import
     relevant_repositories: List[RepositoryAnalysis] = []
     code_analysis: Dict[str, Any] = {}
     skill_matches: List[Dict[str, Any]] = []
@@ -45,8 +48,6 @@ class JobMatcher:
         
         with open(job_path, 'r', encoding='utf-8') as f:
             job_text = f.read()
-        
-        print(f"🔍 Analyzing job description: {job_description_path}")
         
         # create plan for job description parsing
         plan = self._create_job_parsing_plan()

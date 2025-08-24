@@ -1,455 +1,449 @@
-"""Main entry point for the GitHub Portia system."""
+"""Main entry point and web workflow for GitHub Portia system.
+
+This file previously became corrupted by overlapping edits. It has been
+cleaned and simplified. The CLI main() remains minimal; the enhanced
+main_workflow() is used by the web UI and streams granular steps.
+"""
 
 import os
 import sys
 from pathlib import Path
-from datetime import datetime
-
 from dotenv import load_dotenv
 
-from portia import Portia, Config, LLMProvider, PlanRunState, ValueConfirmationClarification, PortiaToolRegistry
-from portia.cli import CLIExecutionHooks
-
+from portia import Portia, Config, LLMProvider, PortiaToolRegistry, LogLevel
 from agents import PlannerAgent, SchedulerAgent
 from tools.candidate_tracker import CandidateTracker
 from utils.cli import create_sample_job_description
 
 
 def main():
-    """Main function to run the GitHub Portia system."""
-    
-    # load environment variables
+    """CLI execution (kept lean)."""
     load_dotenv()
-    
-    # check required environment variables
-    required_vars = ["GOOGLE_API_KEY", "PORTIA_API_KEY"]
-    missing_vars = [var for var in required_vars if not os.getenv(var)]
-    if missing_vars:
-        print(f"❌ Missing required environment variables: {', '.join(missing_vars)}")
-        print("Please set them in your .env file")
-        print("\n📋 Required setup:")
-        print("1. GOOGLE_API_KEY - For Gemini LLM (you already have this)")
-        print("2. PORTIA_API_KEY - For email/calendar features (get from https://app.portialabs.ai/)")
+    required = ["GOOGLE_API_KEY", "PORTIA_API_KEY"]
+    missing = [v for v in required if not os.getenv(v)]
+    if missing:
+        print(f"Missing env vars: {', '.join(missing)}")
         sys.exit(1)
-    
-    # initialize portia with Gemini configuration and Portia Cloud tools
+
     config = Config.from_default(
         llm_provider=LLMProvider.GOOGLE,
         default_model="google/gemini-2.0-flash",
         google_api_key=os.getenv("GOOGLE_API_KEY"),
-        portia_api_key=os.getenv("PORTIA_API_KEY")
+        portia_api_key=os.getenv("PORTIA_API_KEY"),
+        default_log_level=LogLevel.ERROR  # Suppress INFO messages
     )
     portia = Portia(config, tools=PortiaToolRegistry(config))
-    
-    # setup execution hooks
-    hooks = CLIExecutionHooks()
-    
-    # get resume path
-    resume_path = Path("resume.pdf")
-    if not resume_path.exists():
-        print(f"❌ Resume file not found: {resume_path}")
-        print("Please place your resume as 'resume.pdf' in the current directory")
+
+    resume = Path("resume.pdf")
+    if not resume.exists():
+        print("resume.pdf not found")
         sys.exit(1)
-    
-    # ensure job description exists
-    job_description_path = Path("job_description.txt")
-    if not job_description_path.exists():
+    job_file = Path("job_description.txt")
+    if not job_file.exists():
         create_sample_job_description()
-        print(f"📝 Created sample job description: {job_description_path}")
-        print("You can edit this file to customize the job requirements")
-    
-    print("🚀 Starting GitHub Portia System")
-    print("=" * 50)
-    print(f"📄 Resume: {resume_path}")
-    print(f"📋 Job Description: {job_description_path}")
-    print()
-    
+
+    planner = PlannerAgent(portia)
+    result = planner.analyze_resume(str(resume), str(job_file))
+    print("Analysis complete (CLI mode). Use web UI for detailed streaming.")
+    return result
+
+
+def main_workflow(resume_path: str, job_description_path: str):
+    """Web UI workflow: streams step-by-step analysis, scoring & email preview."""
+
+    class _WebStream:
+        def write(self, text):
+            if text.strip():
+                try:
+                    from app import global_add_output
+                    global_add_output(text.rstrip())
+                except Exception:
+                    sys.__stdout__.write(text)
+        def flush(self):
+            pass
+
+    # Attach streaming unless already wrapped
+    if sys.stdout.__class__.__name__ not in {"_WebStream", "WebOutput"}:
+        sys.stdout = _WebStream()
+
+    def step(idx, total, title):
+        print(f"{title}")
+
+    TOTAL = 8
     try:
-        # initialize candidate tracker
-        tracker = CandidateTracker()
-        
-        # create planner agent
-        planner = PlannerAgent(portia)
-        
-        # perform complete analysis
-        print("🤖 Starting complete analysis workflow...")
-        result = planner.analyze_resume(str(resume_path), str(job_description_path))
-        
-        # log resume received
-        tracker.log_resume_received(
-            result.candidate_info,
-            str(resume_path),
-            result.job_match_result.job_description
-        )
-        
-
-        
-        # update tracking with analysis results
-        tracker.update_analysis_results(
-            candidate_name=result.candidate_info.get('candidate_name', 'Unknown'),
-            analysis_results=result.job_match_result.score_breakdown,
-            analysis_file=f"output/enhanced_analysis_{result.candidate_info.get('candidate_name', 'Unknown').replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        )
-        
-
-        
-        # display results
-        print("\n" + "=" * 50)
-        print("📊 ANALYSIS RESULTS")
-        print("=" * 50)
-        
-        # basic candidate info
-        print(f"👤 Candidate: {result.candidate_info.get('candidate_name', 'Unknown')}")
-        print(f"📧 Email: {result.candidate_info.get('email', 'N/A')}")
-        print(f"📱 Phone: {result.candidate_info.get('phone', 'N/A')}")
-        print(f"🔗 GitHub: {result.candidate_info.get('github', 'N/A')}")
-        print(f"💼 LinkedIn: {result.candidate_info.get('linkedin', 'N/A')}")
-        
-        # education summary
-        education = result.candidate_info.get('education', [])
-        if education:
-            print(f"\n🎓 Education ({len(education)} entries):")
-            for edu in education[:2]:  # show first 2
-                print(f"  • {edu.get('degree', 'N/A')} at {edu.get('school', 'N/A')}")
-        
-        # experience summary
-        experience = result.candidate_info.get('experience', [])
-        if experience:
-            print(f"\n💼 Experience ({len(experience)} entries):")
-            for exp in experience[:2]:  # show first 2
-                print(f"  • {exp.get('title', 'N/A')} at {exp.get('company', 'N/A')}")
-        
-        # skills summary - use AI-detected skills if available
-        if hasattr(result, 'job_match_result') and result.job_match_result and hasattr(result.job_match_result, 'score_breakdown'):
-            breakdown = result.job_match_result.score_breakdown
-            if isinstance(breakdown, dict) and 'detected_skills' in breakdown:
-                skills_data = breakdown['detected_skills']
-                total_skills = skills_data.get('skill_count', 0)
-                print(f"\n🛠️ AI-Detected Skills ({total_skills} total):")
-                
-                if skills_data.get('programming_languages'):
-                    print(f"  • Programming Languages: {', '.join(skills_data['programming_languages'][:5])}")
-                if skills_data.get('frameworks'):
-                    print(f"  • Frameworks: {', '.join(skills_data['frameworks'][:5])}")
-                if skills_data.get('databases'):
-                    print(f"  • Databases: {', '.join(skills_data['databases'][:5])}")
-                if skills_data.get('cloud_platforms'):
-                    print(f"  • Cloud Platforms: {', '.join(skills_data['cloud_platforms'][:5])}")
-                if skills_data.get('tools'):
-                    print(f"  • Tools: {', '.join(skills_data['tools'][:5])}")
-                if skills_data.get('methodologies'):
-                    print(f"  • Methodologies: {', '.join(skills_data['methodologies'][:5])}")
-            else:
-                # fallback to basic skills
-                skills = result.candidate_info.get('skills', {})
-                if skills:
-                    primary_skills = skills.get('primary', [])
-                    secondary_skills = skills.get('secondary', [])
-                    tools = skills.get('tools', [])
-                    total_skills = len(primary_skills) + len(secondary_skills) + len(tools)
-                    print(f"\n🛠️ Skills ({total_skills} total):")
-                    if primary_skills:
-                        print(f"  • Primary: {', '.join(primary_skills[:5])}")
-                    if secondary_skills:
-                        print(f"  • Secondary: {', '.join(secondary_skills[:5])}")
-                    if tools:
-                        print(f"  • Tools: {', '.join(tools[:5])}")
+        load_dotenv()
+        # If env keys are present use configured models, else fall back to default ctor
+        if os.getenv("GOOGLE_API_KEY") and os.getenv("PORTIA_API_KEY"):
+            try:
+                config = Config.from_default(
+                    llm_provider=LLMProvider.GOOGLE,
+                    default_model="google/gemini-1.5-flash",  # Use the standard model instead of 2.0
+                    google_api_key=os.getenv("GOOGLE_API_KEY"),
+                    portia_api_key=os.getenv("PORTIA_API_KEY"),
+                    default_log_level=LogLevel.ERROR  # Suppress INFO messages
+                )
+                portia = Portia(config, tools=PortiaToolRegistry(config))
+            except Exception as api_error:
+                print(f"<div style='background-color: #fef2f2; padding: 15px; border-radius: 8px; border-left: 4px solid #ef4444;'>")
+                print(f"<h3><strong>⚠️ API Configuration Issue</strong></h3>")
+                print(f"<p>Google API quota exceeded or configuration error. Falling back to basic analysis.</p>")
+                print(f"<p><strong>Error:</strong> {str(api_error)}</p>")
+                print(f"</div>")
+                # Fallback to basic config
+                config = Config.from_default(default_log_level=LogLevel.ERROR)
+                portia = Portia(config)
         else:
-            # fallback to basic skills
-            skills = result.candidate_info.get('skills', {})
-            if skills:
-                primary_skills = skills.get('primary', [])
-                secondary_skills = skills.get('secondary', [])
-                tools = skills.get('tools', [])
-                total_skills = len(primary_skills) + len(secondary_skills) + len(tools)
-                print(f"\n🛠️ Skills ({total_skills} total):")
-                if primary_skills:
-                    print(f"  • Primary: {', '.join(primary_skills[:5])}")
-                if secondary_skills:
-                    print(f"  • Secondary: {', '.join(secondary_skills[:5])}")
-                if tools:
-                    print(f"  • Tools: {', '.join(tools[:5])}")
-        
-        # projects summary
-        projects = result.candidate_info.get('projects', [])
-        if projects:
-            print(f"\n📁 Projects ({len(projects)} total):")
-            for proj in projects[:3]:  # show first 3
-                print(f"  • {proj.get('name', 'N/A')}: {proj.get('description', 'N/A')[:50]}...")
-        
-        # github analysis
-        if result.github_analysis:
-            print(f"\n🐙 GitHub Analysis:")
-            print(f"  • Username: {result.github_analysis.username}")
-            print(f"  • Public Repos: {result.github_analysis.public_repos}")
-            print(f"  • Followers: {result.github_analysis.followers}")
-            print(f"  • Following: {result.github_analysis.following}")
-            
-            if result.github_analysis.contributions:
-                print(f"  • Total Contributions: {result.github_analysis.contributions.total_contributions}")
-                print(f"  • Total Commits: {result.github_analysis.contributions.total_commits}")
-                print(f"  • Active Days: {result.github_analysis.contributions.active_days}")
-            
-            if result.github_analysis.repositories:
-                print(f"  • Repositories: {len(result.github_analysis.repositories)}")
-                # show top languages
-                all_languages = []
-                for repo in result.github_analysis.repositories:
-                    all_languages.extend(repo.languages)
-                if all_languages:
-                    from collections import Counter
-                    top_languages = Counter(all_languages).most_common(3)
-                    print(f"  • Top Languages: {', '.join([lang for lang, _ in top_languages])}")
-        
-        # job matching results
-        if result.job_match_result:
-            print(f"\n🎯 Job Matching Results:")
-            print(f"  • Position: {result.job_match_result.job_description.title}")
-            print(f"  • Match Score: {result.job_match_result.match_score:.1%}")
-            print(f"  • Assessment: {result.job_match_result.overall_assessment}")
-            
-            # display AI evaluation details if available
-            if hasattr(result.job_match_result, 'score_breakdown') and result.job_match_result.score_breakdown:
-                breakdown = result.job_match_result.score_breakdown
-                if isinstance(breakdown, dict) and 'strengths' in breakdown:
-                    print(f"\n💪 Key Strengths:")
-                    for strength in breakdown.get('strengths', [])[:3]:
-                        print(f"  • {strength}")
-                    
-                    print(f"\n⚠️ Areas for Improvement:")
-                    for weakness in breakdown.get('weaknesses', [])[:3]:
-                        print(f"  • {weakness}")
-                    
-                    print(f"\n🎯 Recommendations:")
-                    for rec in breakdown.get('recommendations', [])[:3]:
-                        print(f"  • {rec}")
-                    
-                    if 'final_recommendation' in breakdown:
-                        print(f"\n📋 Final Recommendation:")
-                        print(f"  {breakdown['final_recommendation']}")
-            
-            # display detailed score breakdown if available
-            if hasattr(result.job_match_result, 'score_breakdown') and result.job_match_result.score_breakdown:
-                print(f"\n📊 Detailed Score Breakdown:")
-                breakdown = result.job_match_result.score_breakdown
-                if isinstance(breakdown, dict):
-                    for component, details in breakdown.items():
-                        if isinstance(details, dict) and 'score' in details:
-                            score_pct = details["score"]
-                            reasoning = details.get("reasoning", "No reasoning provided")
-                            print(f"  • {component.replace('_', ' ').title()}: {score_pct:.1f}%")
-                            print(f"    {reasoning[:100]}{'...' if len(reasoning) > 100 else ''}")
-                else:
-                    print(f"  • Score breakdown format: {type(breakdown)}")
-                    print(f"  • Content: {breakdown}")
-                
-                # display scoring criteria for transparency
-                if hasattr(result.job_match_result, 'score_breakdown') and result.job_match_result.score_breakdown:
-                    scoring_criteria = result.job_match_result.score_breakdown.get('scoring_criteria')
-                    if scoring_criteria:
-                        print(f"\n📋 SCORING CRITERIA (HR Transparency):")
-                        print("=" * 50)
-                        print(f"Overview: {scoring_criteria.get('overview', 'N/A')}")
-                        
-                        components = scoring_criteria.get('scoring_components', {})
-                        for component, criteria in components.items():
-                            print(f"\n{component.replace('_', ' ').title()} ({criteria.get('weight', 'N/A')}):")
-                            print(f"  Description: {criteria.get('description', 'N/A')}")
-                            print(f"  Criteria: {', '.join(criteria.get('criteria', []))}")
-                        
-                        print(f"\nOverall Score Interpretation:")
-                        interpretation = scoring_criteria.get('overall_score_interpretation', {})
-                        for range_desc, meaning in interpretation.items():
-                            print(f"  • {range_desc}: {meaning}")
-                        
-                        print(f"\nTransparency Notes:")
-                        notes = scoring_criteria.get('transparency_notes', [])
-                        for note in notes:
-                            print(f"  • {note}")
-            
-            if result.job_match_result.relevant_repositories:
-                print(f"  • Relevant Repositories: {len(result.job_match_result.relevant_repositories)}")
-                for repo in result.job_match_result.relevant_repositories[:3]:
-                    print(f"    - {repo.name} (relevance: {repo.relevance_score:.1%})")
-            
-            if result.job_match_result.recommendations:
-                print(f"  • Recommendations:")
-                for rec in result.job_match_result.recommendations[:3]:
-                    print(f"    - {rec}")
-        
-        print("\n" + "=" * 50)
-        print("✅ Analysis completed successfully!")
-        
-        # human-in-the-loop decision point
-        print("\n🤔 HUMAN DECISION REQUIRED")
-        print("=" * 50)
-        
-        candidate_name = result.candidate_info.get('candidate_name', 'Candidate')
-        match_score = result.job_match_result.match_score if result.job_match_result else 0.0
-        job_title = result.job_match_result.job_description.title if result.job_match_result else "Position"
-        
-        print(f"📋 Candidate: {candidate_name}")
-        print(f"🎯 Position: {job_title}")
-        print(f"📊 Match Score: {match_score:.1%}")
-        print(f"📝 Assessment: {result.job_match_result.overall_assessment if result.job_match_result else 'N/A'}")
-        
-        # ask for user decision
-        while True:
-            print(f"\n❓ Should we proceed with {candidate_name} for the {job_title} position?")
-            print("   This will:")
-            print("   • Send an acceptance email to the candidate")
-            print("   • Send a notification to the hiring manager")
-            print("   • Schedule an interview for 7 days from now")
-            
-            user_input = input("\nEnter 'yes' to proceed or 'no' to reject: ").strip().lower()
-            
-            if user_input in ['yes', 'y']:
-                print(f"\n✅ Proceeding with {candidate_name}...")
-                
-                # email preview and customization phase
-                print(f"\n📧 EMAIL PREVIEW & CUSTOMIZATION")
-                print("=" * 50)
-                
-                # create scheduler agent to generate email templates (ONCE)
-                scheduler = SchedulerAgent(portia)
-                email_templates = scheduler.generate_email_templates(
-                    result.candidate_info,
-                    result.job_match_result.job_description,
-                    match_score
-                )
-                
-                # show email preview
-                print("\n📤 EMAIL TO CANDIDATE:")
-                print("-" * 30)
-                print(f"Subject: {email_templates['candidate']['subject']}")
-                print(f"To: {result.candidate_info.get('email', 'No email found')}")
-                print(f"\nBody:\n{email_templates['candidate']['body']}")
-                
-                print("\n📤 EMAIL TO MANAGER:")
-                print("-" * 30)
-                print(f"Subject: {email_templates['manager']['subject']}")
-                print(f"To: Hiring Manager (via OAuth)")
-                print(f"\nBody:\n{email_templates['manager']['body']}")
-                
-                # ask for customization
-                print(f"\n✏️ EMAIL CUSTOMIZATION")
-                print("-" * 30)
-                print("Enter your instructions for email customization, or press Enter to use these templates.")
-                print("\nExamples:")
-                print("- 'Make the tone more formal and professional'")
-                print("- 'Add that we're excited about their GitHub projects'")
-                print("- 'Mention that the interview will include a coding challenge'")
-                print("- 'Schedule for next Friday instead of 7 days from now'")
-                
-                custom_instructions = input("\n✏️ Enter your email customization instructions (or press Enter for defaults): ").strip()
-                
-                if custom_instructions:
-                    print(f"\n🔧 Customizing emails based on: '{custom_instructions}'")
-                    
-                    # customize existing emails efficiently (no re-generation)
-                    email_templates = scheduler.customize_existing_emails(
-                        email_templates,
-                        custom_instructions,
-                        result.candidate_info,
-                        result.job_match_result.job_description,
-                        match_score
-                    )
-                    
-                    # show updated preview
-                    print("\n📤 UPDATED EMAIL TO CANDIDATE:")
-                    print("-" * 30)
-                    print(f"Subject: {email_templates['candidate']['subject']}")
-                    print(f"Body:\n{email_templates['candidate']['body']}")
-                    
-                    print("\n📤 UPDATED EMAIL TO MANAGER:")
-                    print("-" * 30)
-                    print(f"Subject: {email_templates['manager']['subject']}")
-                    print(f"Body:\n{email_templates['manager']['body']}")
-                
-                # get final confirmation
-                print(f"\n📋 FINAL CONFIRMATION")
-                print("=" * 50)
-                print(f"Candidate: {candidate_name}")
-                print(f"Position: {job_title}")
-                if custom_instructions:
-                    print(f"Custom instructions: {custom_instructions}")
-                
-                final_confirm = input("\n✅ Send these emails and schedule interview? (yes/no): ").strip().lower()
-                if final_confirm not in ['yes', 'y']:
-                    print("❌ Email sending cancelled.")
-                    break
-                
-                # schedule interview using existing scheduler (no re-creation)
-                scheduling_result = scheduler.schedule_interview_and_notify(
-                    result.candidate_info,
-                    result.job_match_result.job_description,
-                    match_score,
-                    email_templates=email_templates
-                )
-                
-                if scheduling_result["success"]:
-                    print(f"\n🎉 SUCCESS! Interview scheduled for {scheduling_result['interview_date']}")
-                    print("📧 Emails sent to candidate and hiring manager")
-                    print("📅 Calendar event created")
-                    
-                    # log decision and interview details
-                    tracker.log_decision(
-                        candidate_name=candidate_name,
-                        decision="yes",
-                        interview_date=scheduling_result.get('interview_date', ''),
-                        interview_time="10:00 AM",  # default time
-                        google_meet_link=None,
-                        notes=f"Interview scheduled successfully. Match score: {match_score:.1%}"
-                    )
-                    
+            # Create config with minimal logging for default case
+            config = Config.from_default(default_log_level=LogLevel.ERROR)
+            portia = Portia(config)
 
-                    
-                    print("\n📁 Results saved to 'output/' directory")
-                else:
-                    print(f"\n⚠️ Scheduling completed with some issues:")
-                    print(f"   Interview date: {scheduling_result['interview_date']}")
-                    if 'error' in scheduling_result:
-                        print(f"   Error: {scheduling_result['error']}")
-                
-                break
-                
-            elif user_input in ['no', 'n']:
-                print(f"\n❌ Rejected {candidate_name} for the {job_title} position.")
-                
-                # log rejection decision
-                tracker.log_decision(
-                    candidate_name=candidate_name,
-                    decision="no",
-                    notes=f"Candidate rejected. Match score: {match_score:.1%}"
-                )
-                
+        planner = PlannerAgent(portia)
+        tracker = CandidateTracker()
 
-                
-                print("📁 Analysis results saved to 'output/' directory")
-                break
-                
+        
+       
+        
+
+        step(1, TOTAL, "<h2><strong>🔄 Running End-to-End Analysis</strong></h2><p>Analyzing resume + GitHub profile + job matching...</p>")
+        
+        try:
+            result = planner.analyze_resume(resume_path, job_description_path)
+        except Exception as analysis_error:
+            # Handle API quota exceeded or other analysis errors
+            error_output = []
+            error_output.append("<div style='background-color: #fef2f2; padding: 15px; border-radius: 8px; border-left: 4px solid #ef4444;'>")
+            error_output.append("<h3><strong>⚠️ Analysis Error Encountered</strong></h3>")
+            
+            if "quota" in str(analysis_error).lower() or "429" in str(analysis_error):
+                error_output.append("<p><strong>Google API Quota Exceeded:</strong> You've reached the daily limit of 200 requests for the free tier.</p>")
+                error_output.append("<p><strong>Solutions:</strong></p>")
+                error_output.append("<ul>")
+                error_output.append("<li>Wait 24 hours for quota reset</li>")
+                error_output.append("<li>Upgrade to paid Google AI API plan</li>")
+                error_output.append("<li>Use OpenAI API as alternative (add OPENAI_API_KEY to .env)</li>")
+                error_output.append("</ul>")
             else:
-                print("❌ Please enter 'yes' or 'no'")
+                error_output.append(f"<p><strong>Error:</strong> {str(analysis_error)}</p>")
+            
+            error_output.append("</div>")
+            step(1.5, TOTAL, '\n'.join(error_output))
+            return None
         
-        # display tracking summary
-        print("\n" + "=" * 50)
-        print("📊 CANDIDATE TRACKING SUMMARY")
-        print("=" * 50)
-        summary = tracker.get_tracking_summary()
-        print(f"📈 Total Candidates: {summary['total_candidates']}")
-        print(f"📅 Last Updated: {summary['last_updated']}")
-        print("\n📋 Status Breakdown:")
-        for status, count in summary['status_counts'].items():
-            print(f"  • {status.title()}: {count}")
-        
-        print(f"\n📊 CSV file ready for Google Sheets import:")
-        csv_path = tracker.export_for_google_sheets()
-        
+        candidate_name = result.candidate_info.get('candidate_name', 'Unknown')
+        job_title = result.job_match_result.job_description.title if result.job_match_result else 'Position'
+        match_score = result.job_match_result.match_score if result.job_match_result else 0.0
 
+        # If job matching failed but we have GitHub analysis, still show it
+        if not result.job_match_result and result.github_analysis:
+            fallback_output = []
+            fallback_output.append("<div style='background-color: #fffbeb; padding: 15px; border-radius: 8px; border-left: 4px solid #f59e0b;'>")
+            fallback_output.append("<h3><strong>⚠️ Limited Analysis Mode</strong></h3>")
+            fallback_output.append("<p>Job matching failed due to API limitations, but GitHub analysis is available.</p>")
+            fallback_output.append("</div>")
+            print('\n'.join(fallback_output))
+
+        # Group candidate profile information together
+        profile_output = []
+        profile_output.append("<h2><strong>👤 Candidate Profile & GitHub Summary</strong></h2>")
+        profile_output.append("<div style='background-color: #f8fafc; padding: 15px; border-radius: 8px; margin: 10px 0;'>")
+        profile_output.append(f"<h3><strong>Basic Information</strong></h3>")
+        profile_output.append("<ul>")
+        profile_output.append(f"<li><strong>Candidate:</strong> {candidate_name}</li>")
+        profile_output.append(f"<li><strong>Position:</strong> {job_title}</li>")
+        profile_output.append(f"<li><strong>Overall Match Score:</strong> <span style='color: #007acc; font-weight: bold;'>{match_score:.1%}</span></li>")
+        profile_output.append("</ul>")
         
+        if result.github_analysis:
+            gh = result.github_analysis
+            profile_output.append(f"<h3><strong>GitHub Activity Summary</strong></h3>")
+            profile_output.append("<ul>")
+            profile_output.append(f"<li><strong>Public Repositories:</strong> {gh.public_repos}</li>")
+            if gh.contributions:
+                profile_output.append(f"<li><strong>Total Commits:</strong> {gh.contributions.total_commits}</li>")
+                profile_output.append(f"<li><strong>Total Contributions:</strong> {gh.contributions.total_contributions}</li>")
+                profile_output.append(f"<li><strong>Pull Requests:</strong> {gh.contributions.total_prs}</li>")
+                profile_output.append(f"<li><strong>Code Reviews:</strong> {gh.contributions.total_reviews}</li>")
+                profile_output.append(f"<li><strong>Active Days:</strong> {gh.contributions.active_days}</li>")
+            profile_output.append("</ul>")
+        else:
+            profile_output.append("<p><em>No GitHub analysis available</em></p>")
+        
+        profile_output.append("</div>")
+        step(2, TOTAL, '\n'.join(profile_output))
+
+        # Add detailed GitHub analysis step
+        if result.github_analysis:
+            github_output = []
+            github_output.append("<h2><strong>🐙 Detailed GitHub Profile Analysis</strong></h2>")
+            
+            gh = result.github_analysis
+            
+            # Profile Information
+            github_output.append("<div style='background-color: #f6f8fa; padding: 15px; border-radius: 8px; margin: 10px 0;'>")
+            github_output.append("<h3><strong>📊 Profile Overview</strong></h3>")
+            github_output.append("<ul>")
+            github_output.append(f"<li><strong>Username:</strong> {gh.username}</li>")
+            if gh.name:
+                github_output.append(f"<li><strong>Name:</strong> {gh.name}</li>")
+            if gh.bio:
+                github_output.append(f"<li><strong>Bio:</strong> {gh.bio}</li>")
+            if gh.company:
+                github_output.append(f"<li><strong>Company:</strong> {gh.company}</li>")
+            if gh.location:
+                github_output.append(f"<li><strong>Location:</strong> {gh.location}</li>")
+            github_output.append(f"<li><strong>Public Repositories:</strong> {gh.public_repos}</li>")
+            github_output.append("</ul>")
+            github_output.append("</div>")
+            
+            # Contribution Analysis
+            if gh.contributions:
+                contrib = gh.contributions
+                github_output.append("<div style='background-color: #e6fffa; padding: 15px; border-radius: 8px; margin: 10px 0;'>")
+                github_output.append("<h3><strong>💻 Contribution Activity</strong></h3>")
+                github_output.append("<ul>")
+                github_output.append(f"<li><strong>Total Contributions:</strong> {contrib.total_contributions}</li>")
+                github_output.append(f"<li><strong>Total Commits:</strong> {contrib.total_commits}</li>")
+                github_output.append(f"<li><strong>Pull Requests:</strong> {contrib.total_prs}</li>")
+                github_output.append(f"<li><strong>Code Reviews:</strong> {contrib.total_reviews}</li>")
+                github_output.append(f"<li><strong>Active Days:</strong> {contrib.active_days}</li>")
+                github_output.append("</ul>")
+                github_output.append("</div>")
+            
+            # Repository Analysis
+            if gh.repositories:
+                github_output.append("<div style='background-color: #fff5b4; padding: 15px; border-radius: 8px; margin: 10px 0;'>")
+                github_output.append(f"<h3><strong>📁 Repository Analysis ({len(gh.repositories)} repositories)</strong></h3>")
+                
+                # Show top repositories by relevance/activity
+                sorted_repos = sorted(gh.repositories, key=lambda r: r.relevance_score if hasattr(r, 'relevance_score') else 0, reverse=True)[:5]
+                
+                github_output.append("<ul>")
+                for i, repo in enumerate(sorted_repos, 1):
+                    github_output.append(f"<li><strong>{repo.name}</strong>")
+                    if hasattr(repo, 'description') and repo.description:
+                        github_output.append(f" - {repo.description}")
+                    github_output.append("<ul>")
+                    if hasattr(repo, 'languages') and repo.languages:
+                        # repo.languages is a list, take first 3
+                        top_langs = repo.languages[:3]
+                        github_output.append(f"<li>Languages: {', '.join(top_langs)}</li>")
+                    if hasattr(repo, 'stars') and repo.stars:
+                        github_output.append(f"<li>Stars: {repo.stars}</li>")
+                    if hasattr(repo, 'forks') and repo.forks:
+                        github_output.append(f"<li>Forks: {repo.forks}</li>")
+                    github_output.append("</ul></li>")
+                github_output.append("</ul>")
+                github_output.append("</div>")
+            
+            # Language Analysis
+            all_languages = set()
+            if gh.repositories:
+                for repo in gh.repositories:
+                    if hasattr(repo, 'languages') and repo.languages:
+                        # repo.languages is a list, not a dict
+                        all_languages.update(repo.languages)
+                
+                if all_languages:
+                    # Convert set to list and take first 10
+                    lang_list = list(all_languages)[:10]
+                    github_output.append("<div style='background-color: #f0f9ff; padding: 15px; border-radius: 8px; margin: 10px 0;'>")
+                    github_output.append("<h3><strong>💻 Programming Languages Used</strong></h3>")
+                    github_output.append("<ul>")
+                    for lang in lang_list:
+                        github_output.append(f"<li>{lang}</li>")
+                    github_output.append("</ul>")
+                    github_output.append("</div>")
+            
+            # Profile Summary
+            if hasattr(gh, 'profile_summary') and gh.profile_summary:
+                github_output.append("<div style='background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 10px 0;'>")
+                github_output.append("<h3><strong>📝 AI-Generated Profile Summary</strong></h3>")
+                github_output.append(f"<p>{gh.profile_summary}</p>")
+                github_output.append("</div>")
+            
+            step(2.5, TOTAL, '\n'.join(github_output))
+
+        step(3, TOTAL, "<h2><strong>📊 Performance Evaluation & Scoring</strong></h2>")
+        breakdown = getattr(result.job_match_result, 'score_breakdown', {}) if result.job_match_result else {}
+        if isinstance(breakdown, dict) and breakdown:
+            # Build complete evaluation output as single string with HTML formatting
+            evaluation_output = []
+            evaluation_output.append(f"<h1><strong>PERFORMANCE EVALUATION SUMMARY</strong></h1>")
+            evaluation_output.append(f"")
+            evaluation_output.append(f"<h2><strong>Overall Assessment</strong></h2>")
+            evaluation_output.append(f"<ul>")
+            evaluation_output.append(f"<li><strong>Match Score:</strong> {match_score:.1%} for <strong>{job_title}</strong></li>")
+            evaluation_output.append(f"<li><strong>Assessment:</strong> {result.job_match_result.overall_assessment if result.job_match_result else 'N/A'}</li>")
+            evaluation_output.append(f"</ul>")
+            evaluation_output.append(f"")
+            
+            # Component scores with full analysis
+            evaluation_output.append(f"<h2><strong>DETAILED COMPONENT SCORES</strong></h2>")
+            evaluation_output.append(f"")
+            for comp, details in breakdown.items():
+                if isinstance(details, dict) and 'score' in details and comp not in {'detected_skills','scoring_criteria','strengths','weaknesses','recommendations','final_recommendation'}:
+                    v = details['score']
+                    disp = f"{v:.1f}%" if v > 1 else f"{v*100:.1f}%"
+                    reason = details.get('reasoning', '')  # Full reasoning, no truncation
+                    evaluation_output.append(f"<h3><strong>{comp.replace('_',' ').title()}:</strong> <span style='color: #007acc;'>{disp}</span></h3>")
+                    evaluation_output.append(f"<p>{reason}</p>")
+                    evaluation_output.append(f"")
+            
+            # Key insights (full analysis)
+            for key,label in [('strengths','<h2><strong>Key Strengths</strong></h2>'),('weaknesses','<h2><strong>Areas for Improvement</strong></h2>'),('recommendations','<h2><strong>Recommendations</strong></h2>')]:
+                items = breakdown.get(key)
+                if items:
+                    evaluation_output.append(f"{label}")
+                    evaluation_output.append(f"<ul>")
+                    for it in items:  # Show all items, not just top 3
+                        evaluation_output.append(f"<li>{it}</li>")
+                    evaluation_output.append(f"</ul>")
+                    evaluation_output.append(f"")
+            
+            if breakdown.get('final_recommendation'):
+                evaluation_output.append(f"<h2><strong>Final AI Recommendation</strong></h2>")
+                evaluation_output.append(f"<div style='background-color: #f0f8ff; padding: 15px; border-left: 4px solid #007acc; margin: 10px 0;'>")
+                evaluation_output.append(f"<p>{breakdown['final_recommendation']}</p>")
+                evaluation_output.append(f"</div>")
+                evaluation_output.append(f"")
+                
+            # Skills summary (full analysis)
+            ds = breakdown.get('detected_skills')
+            if ds:
+                evaluation_output.append(f"<h2><strong>Detected Skills Summary</strong></h2>")
+                evaluation_output.append(f"<ul>")
+                skill_categories = ['programming_languages','frameworks','databases','tools']
+                for k in skill_categories:
+                    if ds.get(k):
+                        evaluation_output.append(f"<li><strong>{k.replace('_',' ').title()}:</strong> {', '.join(ds[k])}</li>")  # Show all skills, not just top 3
+                evaluation_output.append(f"</ul>")
+                evaluation_output.append(f"")
+            
+            print('\n'.join(evaluation_output))
+        else:
+            print("<p><em>No detailed scoring breakdown available</em></p>")
+
+        # Human decision with styled prompt
+        decision_prompt = []
+        decision_prompt.append("<h2><strong>🤔 Decision Point</strong></h2>")
+        decision_prompt.append("<div style='background-color: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107;'>")
+        decision_prompt.append("<p><strong>Please review the analysis above and make a decision:</strong></p>")
+        decision_prompt.append("<p>• <strong>YES:</strong> Proceed with email generation and interview scheduling</p>")
+        decision_prompt.append("<p>• <strong>NO:</strong> Reject candidate and move to next</p>")
+        decision_prompt.append("</div>")
+        step(5, TOTAL, '\n'.join(decision_prompt))
+        
+        while True:
+            decision = input("Proceed with candidate? (yes/no): ").strip().lower()
+            if decision in {'yes','y','no','n'}:
+                break
+            print("Please answer yes or no.")
+
+        scheduler = None
+        if decision in {'yes','y'}:
+            step(6, TOTAL, "<h2><strong>✉️ Email Template Generation & Preview</strong></h2>")
+            scheduler = SchedulerAgent(portia)
+            emails = scheduler.generate_email_templates(result.candidate_info, result.job_match_result.job_description, match_score)
+            
+            # Group both email previews in a single formatted message
+            email_previews = []
+            email_previews.append("<h2><strong>📧 Email Templates Generated</strong></h2>")
+            email_previews.append("")
+            
+            # Candidate email preview
+            email_previews.append("<div style='background-color: #f0f9ff; padding: 15px; border-radius: 8px; margin: 10px 0; border-left: 4px solid #0ea5e9;'>")
+            email_previews.append("<h3><strong>📨 Candidate Email Preview</strong></h3>")
+            email_previews.append(f"<p><strong>To:</strong> {result.candidate_info.get('email', 'No email found')}</p>")
+            email_previews.append(f"<p><strong>Subject:</strong> {emails['candidate']['subject']}</p>")
+            email_previews.append("<hr style='margin: 10px 0; border: 1px solid #e0e7ff;'>")
+            email_previews.append(f"<div style='white-space: pre-line; font-family: system-ui;'>{emails['candidate']['body']}</div>")
+            email_previews.append("</div>")
+            email_previews.append("")
+            
+            # Manager email preview
+            email_previews.append("<div style='background-color: #f0fdf4; padding: 15px; border-radius: 8px; margin: 10px 0; border-left: 4px solid #22c55e;'>")
+            email_previews.append("<h3><strong>👔 Manager Email Preview</strong></h3>")
+            email_previews.append(f"<p><strong>To:</strong> Hiring Manager</p>")
+            email_previews.append(f"<p><strong>Subject:</strong> {emails['manager']['subject']}</p>")
+            email_previews.append("<hr style='margin: 10px 0; border: 1px solid #dcfce7;'>")
+            email_previews.append(f"<div style='white-space: pre-line; font-family: system-ui;'>{emails['manager']['body']}</div>")
+            email_previews.append("</div>")
+            
+            print('\n'.join(email_previews))
+            
+            cust = input("\nEmail customization instructions (Enter to keep as-is): ").strip()
+            if cust:
+                customization_output = []
+                customization_output.append("<h3><strong>🔧 Customizing Emails...</strong></h3>")
+                customization_output.append(f"<p><em>Applying customization: {cust}</em></p>")
+                print('\n'.join(customization_output))
+                
+                emails = scheduler.customize_existing_emails(emails, cust, result.candidate_info, result.job_match_result.job_description, match_score)
+                
+                updated_email = []
+                updated_email.append("<h3><strong>📧 Updated Candidate Email</strong></h3>")
+                updated_email.append("<div style='background-color: #fef3c7; padding: 15px; border-radius: 8px; border-left: 4px solid #f59e0b;'>")
+                updated_email.append(f"<div style='white-space: pre-line; font-family: system-ui;'>{emails['candidate']['body']}</div>")
+                updated_email.append("</div>")
+                print('\n'.join(updated_email))
+                
+            send = input("\nSend emails & schedule interview? (yes/no): ").strip().lower()
+            if send in {'yes','y'}:
+                step(7, TOTAL, "<h2><strong>📅 Scheduling Interview & Sending Notifications</strong></h2>")
+                sched_res = scheduler.schedule_interview_and_notify(result.candidate_info, result.job_match_result.job_description, match_score, email_templates=emails)
+                
+                scheduling_result = []
+                if sched_res.get('success'):
+                    scheduling_result.append("<div style='background-color: #f0fdf4; padding: 15px; border-radius: 8px; border-left: 4px solid #22c55e;'>")
+                    scheduling_result.append("<h3><strong>✅ Interview Successfully Scheduled</strong></h3>")
+                    scheduling_result.append(f"<p><strong>Date:</strong> {sched_res.get('interview_date')}</p>")
+                    scheduling_result.append("<p><strong>Status:</strong> Emails sent, calendar invites created</p>")
+                    scheduling_result.append("</div>")
+                    CandidateTracker().log_decision(candidate_name, 'yes', interview_date=sched_res.get('interview_date'), notes=f"Scheduled. Match {match_score:.1%}")
+                else:
+                    scheduling_result.append("<div style='background-color: #fef2f2; padding: 15px; border-radius: 8px; border-left: 4px solid #ef4444;'>")
+                    scheduling_result.append("<h3><strong>❌ Scheduling Issues Encountered</strong></h3>")
+                    scheduling_result.append("<p>Please check the logs for more details</p>")
+                    scheduling_result.append("</div>")
+                print('\n'.join(scheduling_result))
+            else:
+                cancelled_output = []
+                cancelled_output.append("<div style='background-color: #f3f4f6; padding: 15px; border-radius: 8px; border-left: 4px solid #6b7280;'>")
+                cancelled_output.append("<h3><strong>⏸️ Scheduling Cancelled</strong></h3>")
+                cancelled_output.append("<p>User chose not to proceed after email preview</p>")
+                cancelled_output.append("</div>")
+                print('\n'.join(cancelled_output))
+                CandidateTracker().log_decision(candidate_name,'no',notes=f"Cancelled post-preview. Match {match_score:.1%}")
+        else:
+            rejection_output = []
+            rejection_output.append("<div style='background-color: #fef2f2; padding: 15px; border-radius: 8px; border-left: 4px solid #ef4444;'>")
+            rejection_output.append("<h3><strong>❌ Candidate Rejected</strong></h3>")
+            rejection_output.append("<p>User decided not to proceed before email generation</p>")
+            rejection_output.append("</div>")
+            print('\n'.join(rejection_output))
+            CandidateTracker().log_decision(candidate_name,'no',notes=f"Rejected. Match {match_score:.1%}")
+
+        # Final tracking summary with enhanced formatting
+        tracking_output = []
+        tracking_output.append("<h2><strong>📊 Workflow Summary & Tracking</strong></h2>")
+        tracking_output.append("<div style='background-color: #f8fafc; padding: 15px; border-radius: 8px; margin: 10px 0;'>")
+        
+        tracker_summary = CandidateTracker().get_tracking_summary()
+        tracking_output.append("<h3><strong>Candidate Processing Summary</strong></h3>")
+        tracking_output.append("<ul>")
+        for status,count in tracker_summary['status_counts'].items():
+            tracking_output.append(f"<li><strong>{status.title()}:</strong> {count} candidates</li>")
+        tracking_output.append("</ul>")
+        tracking_output.append("<p><em>Data exported for Google Sheets integration</em></p>")
+        tracking_output.append("</div>")
+        tracking_output.append("<h3><strong>🎉 Workflow Complete!</strong></h3>")
+        
+        step(8, TOTAL, '\n'.join(tracking_output))
+        CandidateTracker().export_for_google_sheets()
+        return result
     except Exception as e:
-        print(f"❌ Analysis failed: {str(e)}")
-        sys.exit(1)
+        print(f"Error: {e}")
+        raise
 
 
 if __name__ == "__main__":

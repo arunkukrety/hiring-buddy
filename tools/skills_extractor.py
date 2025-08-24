@@ -139,8 +139,6 @@ class SkillsExtractor:
     def extract_skills_from_resume(self, resume_text: str) -> SkillsData:
         """Extract skills from resume text using enhanced detection."""
         
-        print("🔍 Extracting skills from resume text...")
-        
         # normalize text for better matching
         normalized_text = resume_text.lower()
         
@@ -197,8 +195,6 @@ class SkillsExtractor:
     
     def extract_skills_from_github(self, github_data: Dict[str, Any]) -> SkillsData:
         """Extract skills from GitHub profile and repository data."""
-        
-        print("🔍 Extracting skills from GitHub data...")
         
         detected_skills = set()
         

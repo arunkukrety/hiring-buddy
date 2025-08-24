@@ -203,7 +203,7 @@ class SchedulerAgent:
         plan.invoke_tool_step(
             tool="portia:google:gmail:send_email",
             args={
-                "recipients": ["hiring@company.com"],  # This will be replaced by OAuth sender
+                "recipients": ["hiring-manager@company.com"],  # This will be replaced by OAuth sender
                 "email_title": Input("manager_email_subject"),
                 "email_body": Input("manager_email_body")
             },

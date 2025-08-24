@@ -1,194 +1,323 @@
-# Recruiting Agent - LLM-Powered Resume Parser
+# HireBuddy - AI-Powered Hiring Assistant
 
-A dynamic resume analysis system built with Portia AI that can parse any resume format using LLM-based extraction.
+<div align="center">
+  
+[![Demo Video](https://img.shields.io/badge/🎥_Demo-Watch_on_YouTube-red?style=for-the-badge&logo=youtube)](https://www.youtube.com/watch?v=ABo2hvASLmk)
+[![Python](https://img.shields.io/badge/Python-3.13+-blue?style=for-the-badge&logo=python)](https://python.org)
+[![Portia AI](https://img.shields.io/badge/Powered_by-Portia_AI-purple?style=for-the-badge)](https://portialabs.ai)
 
-## 🚀 Features
+*Intelligent recruitment automation - from resume parsing to interview scheduling*
 
-- **Universal Resume Support**: Handles PDF, LaTeX, and text-based resumes
-- **LLM-Powered Parsing**: Uses advanced language models for accurate information extraction
-- **GitHub Profile Analysis**: Comprehensive GitHub activity and code analysis
-- **Structured Output**: Returns standardized JSON with candidate information
-- **Robust PDF Processing**: Multiple fallback methods for PDF text extraction
-- **Portia AI Integration**: Built on Portia's planning and execution framework
-- **Google Calendar Integration**: Automated interview scheduling with Google Meet
-- **Email Automation**: Automated candidate and manager notifications
+</div>
 
-## 📋 Extracted Information
+## Live Demo
 
-### Resume Data
-- **Personal Details**: Name, email, phone, location
-- **Professional Links**: LinkedIn, GitHub, portfolio
-- **Education**: Schools, degrees, dates
-- **Experience**: Companies, titles, descriptions, dates
-- **Skills**: Categorized as primary, secondary, and tools
-- **Projects**: Names, descriptions, tech stacks, links
+[![Watch HireBuddy in Action](https://img.youtube.com/vi/ABo2hvASLmk/hqdefault.jpg)](https://www.youtube.com/watch?v=ABo2hvASLmk "HireBuddy End-to-End Demo")
 
-### GitHub Analysis
-- **Profile Information**: Name, bio, location, company, website
-- **Activity Metrics**: Public repos, followers, following, account age
-- **Contribution Analysis**: Track activity within date ranges, commit patterns
-- **Intelligent Repository Filtering**: Skip trivial repos, prioritize meaningful projects
-- **Adaptive Scanning**: README analysis with fallback to structure inference
-- **Relevance Scoring**: High/Medium/Low categories based on multiple factors
-- **Code Quality Indicators**: Community interest, documentation, project complexity
-- **Comprehensive Reporting**: Structured JSON with actionable insights
+End‑to‑end automated hiring workflow in under 5 minutes (click thumbnail to watch).
 
-## 🛠️ Installation
+## What is HireBuddy?
 
-1. **Clone the repository**
+HireBuddy is an intelligent hiring assistant that completely automates candidate evaluation. It analyzes resumes, scans GitHub profiles, matches candidates to job requirements, and even schedules interviews - all powered by advanced AI.
+
+**The Problem**: Manual resume screening takes hours per candidate, GitHub analysis is inconsistent, and scheduling interviews involves endless email chains.
+
+**The Solution**: HireBuddy processes everything automatically, providing detailed candidate insights with match scores, GitHub analysis, and one-click interview scheduling.
+
+## System Architecture
+
+![Architecture Diagram](arch.png)
+
+### Architecture Walkthrough Video
+
+[![Architecture Deep Dive](https://img.youtube.com/vi/gjOww3AcLLw/hqdefault.jpg)](https://www.youtube.com/watch?v=gjOww3AcLLw "Architecture Deep Dive")
+
+Short video explaining agent orchestration, data flow, and scoring pipeline.
+
+HireBuddy uses a multi-agent architecture where specialized AI agents collaborate:
+
+- **Resume Agent** - Extracts structured data from any resume format using LLM parsing
+- **GitHub Agent** - Performs deep analysis of coding profiles, repositories, and contribution patterns  
+- **Supervisor Agent** - Orchestrates the workflow and makes intelligent routing decisions
+- **Scheduler Agent** - Handles interview scheduling with Google Calendar and email automation
+
+Each agent specializes in their domain while the supervisor coordinates the entire evaluation process.
+
+## Core Features
+
+### Intelligent Resume Analysis
+- **Universal Format Support** - Handles PDF, DOCX, and text files with advanced parsing
+- **LLM-Powered Extraction** - Uses AI models to understand context and extract relevant information
+- **Structured Output** - Converts unstructured resumes into standardized candidate profiles
+- **Smart Field Recognition** - Automatically categorizes skills, experience levels, and project complexity
+
+### Advanced GitHub Analysis  
+- **Repository Intelligence** - Analyzes code quality, project complexity, and documentation standards
+- **Job-Specific Filtering** - Identifies repositories most relevant to the target role
+- **Activity Pattern Assessment** - Evaluates coding consistency, contribution frequency, and collaboration
+- **Technology Stack Mapping** - Maps programming languages and frameworks to job requirements
+- **Code Quality Metrics** - Assesses best practices, project structure, and community engagement
+
+### Smart Job Matching
+- **AI-Powered Scoring** - Multi-dimensional analysis considering skills, experience, and GitHub activity
+- **Weighted Evaluation** - Customizable criteria weights based on role importance
+- **Detailed Breakdowns** - Transparent scoring with specific reasoning for each component
+- **Actionable Insights** - Clear recommendations for hiring decisions
+
+### Automated Workflow
+- **Real-time Processing** - Live streaming of analysis progress with detailed step updates
+- **Email Generation** - Personalized candidate and manager notifications with customizable templates
+- **Interview Scheduling** - Automatic Google Calendar integration with Meet links
+- **Decision Tracking** - Complete audit trail of all hiring decisions and interactions
+
+## How It Works
+
+### 1. File Upload
+Users upload candidate resumes and job descriptions through the web interface. The system supports multiple formats and provides real-time validation.
+
+### 2. Resume Analysis
+The Resume Agent uses LLM models to extract structured data:
+- Personal information and contact details
+- Work experience with role descriptions and durations
+- Educational background and certifications
+- Skills categorized by type and proficiency
+- Projects with technology stacks and descriptions
+
+### 3. GitHub Profile Analysis
+If a GitHub profile is found, the GitHub Agent performs:
+- Repository scanning with relevance scoring
+- Code quality assessment based on documentation, structure, and community engagement
+- Contribution pattern analysis for consistency and activity levels
+- Technology stack identification and mapping to job requirements
+- Project complexity evaluation
+
+### 4. Job Matching & Scoring
+The system performs intelligent matching:
+- **Required Skills Match** (40% weight) - How well candidate skills align with must-have requirements
+- **Experience Alignment** (25% weight) - Relevance of work experience to the role
+- **GitHub Activity** (20% weight) - Quality and consistency of coding contributions
+- **Education Background** (15% weight) - Educational qualifications and certifications
+
+### 5. Decision & Scheduling
+Based on the analysis, recruiters can:
+- Review detailed candidate insights and match scores
+- Make informed hiring decisions with AI recommendations
+- Automatically generate personalized interview invitations
+- Schedule interviews with Google Calendar integration
+- Track all decisions for analytics and improvement
+
+## Sample Analysis Output
+
+### Candidate Profile Analysis
+```json
+{
+  "candidate_name": "Sarah Chen",
+  "email": "sarah.chen@email.com",
+  "github": "https://github.com/sarahdev",
+  "experience_years": 3,
+  "skills": {
+    "programming_languages": ["Python", "JavaScript", "TypeScript"],
+    "frameworks": ["React", "Django", "FastAPI"],
+    "tools": ["Git", "Docker", "AWS", "PostgreSQL"]
+  },
+  "projects_count": 8,
+  "education": "MS Computer Science"
+}
+```
+
+### GitHub Analysis Results
+```json
+{
+  "github_analysis": {
+    "username": "sarahdev",
+    "public_repos": 22,
+    "total_contributions": 1340,
+    "activity_level": "High",
+    "top_languages": ["Python", "JavaScript", "TypeScript"],
+    "relevant_repositories": [
+      {
+        "name": "react-dashboard-app",
+        "relevance_score": 0.92,
+        "languages": ["TypeScript", "React"],
+        "complexity": "Medium-High",
+        "stars": 89,
+        "quality_indicators": ["Good documentation", "Active maintenance", "Clean code structure"]
+      }
+    ],
+    "coding_patterns": ["Modern JavaScript practices", "Component-based architecture", "Test-driven development"]
+  }
+}
+```
+
+### Job Match Scoring
+```json
+{
+  "match_analysis": {
+    "overall_score": 0.84,
+    "score_breakdown": {
+      "required_skills": 0.88,
+      "experience_level": 0.82,
+      "github_activity": 0.91,
+      "education": 0.75
+    },
+    "strengths": [
+      "Strong proficiency in required technologies (React, TypeScript)",
+      "Active GitHub presence with quality projects",
+      "Recent experience with similar tech stack"
+    ],
+    "recommendations": [
+      "Excellent technical candidate - proceed with interview",
+      "Focus interview on system design and scalability",
+      "Discuss react-dashboard-app project in detail"
+    ]
+  }
+}
+```
+
+## Quick Start
+
+### Prerequisites
+- Python 3.13+
+- Git
+- Google account (for calendar integration)
+- GitHub account (for repository analysis)
+
+### Installation
+
+1. **Clone and Setup**
    ```bash
-   git clone <your-repo-url>
-   cd GithubPortia
-   ```
-
-2. **Set up virtual environment**
-   ```bash
+   git clone https://github.com/yourusername/HireBuddy.git
+   cd HireBuddy
+   
+   # Install UV package manager (recommended)
+   powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+   
+   # Install dependencies
    uv sync
+   
+   # Activate virtual environment
+   .venv\Scripts\activate  # Windows
+   # source .venv/bin/activate  # macOS/Linux
    ```
 
-3. **Install dependencies**
-   ```bash
-   pip install PyPDF2 pdfplumber PyMuPDF
-   ```
-
-4. **Configure environment variables**
+2. **Configure Environment**
    ```bash
    cp env.example .env
-   # Edit .env with your API keys
+   ```
+   
+   Edit `.env` with your API keys:
+   ```env
+   # Required: Google AI API Key (get from https://aistudio.google.com/)
+   GOOGLE_API_KEY=your_google_api_key_here
+   
+   # Required: GitHub Token (get from https://github.com/settings/tokens)
+   GITHUB_TOKEN=your_github_personal_access_token
+   
+   # Required: Portia API Key (get from https://app.portialabs.ai/)
+   PORTIA_API_KEY=your_portia_api_key_here
    ```
 
-## 🔧 Usage
+3. **Run the Application**
+   ```bash
+   python app.py
+   ```
+   
+   Open `http://localhost:5000` in your browser.
 
-### Basic Usage
-```bash
-python main.py
-```
+### API Key Setup
 
-### With Custom Resume
-```bash
-# Place your resume as resume.pdf in the project root
-python main.py
-```
+**Google AI API Key**
+- Visit [Google AI Studio](https://aistudio.google.com/)
+- Create/select project and generate API key
+- Note: Free tier has 200 requests/day limit
 
-### Google Calendar Integration
+**GitHub Personal Access Token**  
+- Go to [GitHub Settings > Tokens](https://github.com/settings/tokens)
+- Generate token with `public_repo`, `read:user`, `user:email` scopes
 
-The system now uses Portia AI's built-in Google Calendar integration for automated interview scheduling:
+**Portia API Key**
+- Visit [Portia Labs](https://app.portialabs.ai/)
+- Create account and generate API key for email/calendar features
 
-1. **OAuth Authentication**: First-time setup requires Google OAuth authentication
-2. **Calendar Events**: Automatically creates Google Calendar events with Google Meet
-3. **Email Notifications**: Sends automated emails to candidates and hiring managers
-4. **Interview Scheduling**: Schedules interviews 7 days from analysis completion
-
-**Setup Requirements:**
-- Valid `PORTIA_API_KEY` from [Portia Labs](https://app.portialabs.ai/)
-- Google account with Calendar and Gmail access
-- OAuth authentication (handled automatically during first use)
-
-### Test Smart GitHub Agent
-```bash
-# Test comprehensive GitHub profile analysis functionality
-python test_smart_github_agent.py
-```
-
-### Test Portia AI Calendar Integration
-```bash
-# Test Google Calendar and Gmail integration
-python test_portia_calendar.py
-```
-
-## 📁 Project Structure
+## Project Structure
 
 ```
-GithubPortia/
-├── main.py                     # Main entry point
-├── agents/                     # Agent modules
-│   ├── __init__.py
-│   ├── planner_agent.py        # Planning agent for analysis
-│   ├── github_agent.py         # GitHub profile analysis agent
-│   └── resume_agent.py         # Resume analysis logic
-├── utils/                      # Utility modules
-│   ├── __init__.py
-│   ├── schemas.py              # Pydantic data models
-│   └── cli.py                  # Command-line interface
-├── tools/                      # Tool modules
-│   ├── __init__.py
-│   ├── tools.py                # General tools
-│   ├── github_scanner.py       # GitHub profile scanner
-│   ├── resume_parser.py        # Comprehensive resume parser (text + LLM)
-│   ├── candidate_tracker.py    # Candidate tracking and analytics
-│   └── email_templates.py      # Email template management
-├── agents/                     # Agent modules
-│   ├── __init__.py
-│   ├── planner_agent.py        # Planning agent for analysis
-│   ├── scheduler_agent.py      # Interview scheduling agent
-│   └── github_agent.py         # GitHub profile analysis agent
-├── env.example                 # Environment variables template
-├── pyproject.toml              # Project configuration
-└── README.md                   # This file
+HireBuddy/
+├── app.py                      # Flask web application
+├── main.py                     # CLI entry point
+├── agents/                     # AI agent implementations
+│   ├── planner_agent.py        # Main workflow orchestrator
+│   ├── github_agent.py         # GitHub analysis specialist
+│   ├── resume_agent.py         # Resume parsing agent
+│   └── scheduler_agent.py      # Interview scheduling agent
+├── tools/                      # Core analysis tools
+│   ├── github_scanner.py       # GitHub API integration
+│   ├── resume_parser.py        # Multi-format resume parsing
+│   ├── job_matcher.py          # Candidate-job alignment
+│   ├── assessment_generator.py # Comprehensive evaluation engine
+│   └── candidate_tracker.py    # Decision tracking and analytics
+├── utils/                      # Data models and utilities
+│   └── schemas.py              # Pydantic data models
+├── templates/                  # Web interface
+│   └── index.html              # Modern responsive UI
+└── output/                     # Analysis results and tracking
 ```
 
-## 🔑 Environment Variables
+## Technical Implementation
 
-Create a `.env` file with:
-```env
-# API Keys - Set GOOGLE_API_KEY for Gemini (recommended)
-GOOGLE_API_KEY=your_google_api_key_here
-# OPENAI_API_KEY=your_openai_api_key_here  # Optional fallback
+### Resume Processing Pipeline
+HireBuddy uses a multi-layered approach for resume parsing:
+1. **Format Detection** - Automatically identifies PDF, DOCX, or text formats
+2. **Text Extraction** - Uses multiple libraries (PyPDF2, pdfplumber, PyMuPDF) for robust extraction
+3. **LLM Analysis** - Gemini/GPT models parse unstructured text into structured data
+4. **Data Validation** - Pydantic models ensure data quality and consistency
 
-# GitHub Token for GitHub analysis
-GITHUB_TOKEN=your_github_token_here
+### GitHub Analysis Engine
+The GitHub analysis combines API data with intelligent processing:
+1. **Profile Scanning** - Retrieves comprehensive profile and repository data
+2. **Repository Filtering** - Identifies relevant repositories based on job requirements
+3. **Code Quality Assessment** - Analyzes documentation, structure, and best practices
+4. **Activity Pattern Recognition** - Evaluates contribution consistency and collaboration
 
-# Portia Cloud Configuration (Required for email/calendar features)
-PORTIA_API_KEY=your_portia_api_key_here
-```
+### Intelligent Matching Algorithm
+The matching system uses weighted scoring across multiple dimensions:
+- **Skill Alignment** - Fuzzy matching between candidate skills and job requirements
+- **Experience Relevance** - Contextual analysis of work experience descriptions
+- **GitHub Quality Score** - Repository quality, activity level, and code patterns
+- **Cultural Fit Indicators** - Communication style, project types, and collaboration patterns
 
-## 📊 Example Output
+## Why HireBuddy?
 
-```
-============================================================
-DYNAMIC RESUME ANALYSIS RESULTS
-============================================================
+### For Recruiters
+- **Time Savings** - Reduce resume screening time from hours to minutes
+- **Consistent Evaluation** - Eliminate human bias with standardized AI analysis
+- **Better Insights** - GitHub analysis provides deeper technical assessment
+- **Automated Workflow** - From analysis to interview scheduling in one platform
 
-📋 Candidate: SWAYAM BANSAL
-📧 Email: swayambansal@outlook.com
-📱 Phone: +91 9817413427
-🐙 GitHub: github.com/swymbnsl/acert-kestra
-🌐 Portfolio: www.swymbnsl.com
+### For Hiring Managers  
+- **Data-Driven Decisions** - Detailed scoring and reasoning for each candidate
+- **Technical Validation** - Comprehensive GitHub analysis for technical roles
+- **Streamlined Process** - Automated scheduling and communication
+- **Audit Trail** - Complete tracking of all hiring decisions
 
-📊 ANALYSIS SUMMARY:
-  • Education: 2 entries found
-  • Skills: 25 total skills across categories
-  • Projects: 4 projects found
+### For Candidates
+- **Fair Evaluation** - Standardized analysis reduces unconscious bias
+- **GitHub Recognition** - Open source contributions are properly evaluated
+- **Professional Communication** - Automated, personalized interview invitations
+- **Transparent Process** - Clear insights into evaluation criteria
 
-🐙 GITHUB ANALYSIS:
-  • Username: octocat
-  • Activity Score: 8.5/10
-  • Languages: JavaScript, Python, Go
-  • Commit Frequency: High
-  • Project Consistency: Excellent
-  • High-Relevance Repos: 3 analyzed, 2 skipped
-  • Repository Quality: Well-documented projects with community interest
+## Contributing
 
-🎯 OVERALL ASSESSMENT:
-  Strong candidate - Has educational background, Has 3 work experiences, Has 4 projects, Has 9 primary skills
+We welcome contributions to improve HireBuddy! Areas of focus:
+- **New Integrations** - ATS systems, job boards, assessment platforms
+- **Enhanced Analysis** - Additional code quality metrics, skill detection
+- **UI/UX Improvements** - Frontend enhancements and user experience
+- **Performance Optimization** - Analysis speed and accuracy improvements
 
-💡 RECOMMENDATIONS:
-  1. Consider adding LinkedIn profile
-```
+## License
 
-## 🤝 Contributing
+MIT License - see [LICENSE](LICENSE) file for details.
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+## Acknowledgments
 
-## 📝 License
-
-[Add your license here]
-
-## 🙏 Acknowledgments
-
-- Built with [Portia AI](https://portialabs.ai/)
-- PDF processing with PyPDF2, pdfplumber, and PyMuPDF
+Built with [Portia AI](https://portialabs.ai/) for multi-agent orchestration, powered by Google's Gemini models for intelligent analysis, and integrated with GitHub's comprehensive API for repository insights.

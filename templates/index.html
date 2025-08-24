@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HireBuddy - AI Resume Analysis</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .chat-container {
+            height: calc(100vh - 120px);
+        }
+        .message-bubble {
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+        .system-message {
+            background-color: #f3f4f6;
+            border-radius: 18px 18px 18px 4px;
+        }
+        .user-message {
+            background-color: #3b82f6;
+            color: white;
+            border-radius: 18px 18px 4px 18px;
+        }
+        
+        /* Typing indicator animation */
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 1px;
+        }
+        
+        .typing-indicator .dot {
+            height: 8px;
+            width: 8px;
+            border-radius: 50%;
+            background-color: #9ca3af;
+            display: inline-block;
+            margin-right: 4px;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+        
+        .typing-indicator .dot:nth-child(1) {
+            animation-delay: 0s;
+        }
+        
+        .typing-indicator .dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .typing-indicator .dot:nth-child(3) {
+            animation-delay: 0.4s;
+            margin-right: 0;
+        }
+        
+        @keyframes typing {
+            0%, 60%, 100% {
+                transform: translateY(0);
+                opacity: 0.5;
+            }
+            30% {
+                transform: translateY(-10px);
+                opacity: 1;
+            }
+        }
+        .file-upload-area {
+            border: 2px dashed #d1d5db;
+            transition: all 0.3s ease;
+        }
+        .file-upload-area:hover {
+            border-color: #3b82f6;
+            background-color: #f8fafc;
+        }
+        .file-upload-area.dragover {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+        
+        /* Performance evaluation styling */
+        .message-bubble h1 {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #1f2937;
+            margin: 0.5rem 0;
+        }
+        
+        .message-bubble h2 {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #374151;
+            margin: 0.75rem 0 0.5rem 0;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 0.25rem;
+        }
+        
+        .message-bubble h3 {
+            font-size: 1rem;
+            font-weight: bold;
+            color: #4b5563;
+            margin: 0.5rem 0 0.25rem 0;
+        }
+        
+        .message-bubble ul {
+            margin: 0.5rem 0;
+            padding-left: 1.5rem;
+        }
+        
+        .message-bubble li {
+            margin: 0.25rem 0;
+            line-height: 1.5;
+        }
+        
+        .message-bubble strong {
+            font-weight: 600;
+            color: #1f2937;
+        }
+        
+        .message-bubble p {
+            margin: 0.5rem 0;
+            line-height: 1.6;
+        }
+        
+        .message-bubble div[style*="background-color: #f0f8ff"] {
+            background-color: #f0f8ff !important;
+            padding: 15px !important;
+            border-left: 4px solid #007acc !important;
+            margin: 10px 0 !important;
+            border-radius: 0.375rem;
+        }
+    </style>
+</head>
+<body class="bg-white">
+    <!-- Header -->
+    <div class="bg-white border-b border-gray-200 px-4 py-3">
+        <div class="max-w-4xl mx-auto flex items-center justify-between">
+            <h1 class="text-xl font-semibold text-gray-900">HireBuddy</h1>
+            <div class="text-sm text-gray-500">AI Hiring Assistant</div>
+        </div>
+    </div>
+
+    <!-- Chat Container -->
+    <div class="max-w-4xl mx-auto chat-container flex flex-col">
+        <!-- Messages Area -->
+        <div id="messagesContainer" class="flex-1 overflow-y-auto p-4 space-y-4">
+            <!-- Welcome Message -->
+            <div class="flex justify-start">
+                <div class="message-bubble system-message px-4 py-3">
+                    <p class="text-gray-800">Hello! I'm HireBuddy, your friendly AI hiring assistant. To get started, please upload your resume and job description files.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- File Upload Area -->
+        <div id="fileUploadArea" class="p-4 border-t border-gray-200 bg-gray-50">
+            <div class="file-upload-area rounded-lg p-6 text-center">
+                <div class="mb-4">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </div>
+                <p class="text-lg font-medium text-gray-900 mb-2">Upload Required Files</p>
+                <p class="text-gray-600 mb-4">Please upload both your resume and job description to begin analysis</p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="resumeFile" class="block text-sm font-medium text-gray-700 mb-2">Resume (PDF/DOCX)</label>
+                        <input type="file" id="resumeFile" accept=".pdf,.docx" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                    </div>
+                    <div>
+                        <label for="jobFile" class="block text-sm font-medium text-gray-700 mb-2">Job Description (PDF/TXT/DOCX)</label>
+                        <input type="file" id="jobFile" accept=".pdf,.txt,.docx" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                    </div>
+                </div>
+                
+                <button id="uploadBtn" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    Start Analysis
+                </button>
+            </div>
+        </div>
+
+        <!-- Chat Input Area -->
+        <div class="border-t border-gray-200 p-4 bg-white">
+            <div class="flex items-center space-x-3">
+                <div class="flex-1">
+                    <input type="text" id="chatInput" placeholder="Click here to upload resume and job description" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <button id="sendBtn" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let uploadedFiles = null;
+        let eventSource = null;
+        let isAnalysisStarted = false;
+
+        // DOM elements
+        const messagesContainer = document.getElementById('messagesContainer');
+        const fileUploadArea = document.getElementById('fileUploadArea');
+        const chatInput = document.getElementById('chatInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const resumeFile = document.getElementById('resumeFile');
+        const jobFile = document.getElementById('jobFile');
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            // File upload area is visible by default
+            
+            // Handle chat input click
+            chatInput.addEventListener('click', function() {
+                if (!isAnalysisStarted) {
+                    showFileUpload();
+                }
+            });
+
+            // Handle file upload
+            uploadBtn.addEventListener('click', handleFileUpload);
+            
+            // Handle send button
+            sendBtn.addEventListener('click', sendMessage);
+            
+            // Handle enter key
+            chatInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey && !chatInput.disabled) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            // Enable/disable upload button based on file selection
+            resumeFile.addEventListener('change', checkFilesSelected);
+            jobFile.addEventListener('change', checkFilesSelected);
+        });
+
+        function showFileUpload() {
+            fileUploadArea.classList.remove('hidden');
+            // Don't add message since it's already shown in welcome message
+        }
+
+        function checkFilesSelected() {
+            const hasResume = resumeFile.files.length > 0;
+            const hasJob = jobFile.files.length > 0;
+            uploadBtn.disabled = !(hasResume && hasJob);
+        }
+
+        function handleFileUpload() {
+            const resume = resumeFile.files[0];
+            const job = jobFile.files[0];
+            
+            if (!resume || !job) {
+                addSystemMessage("Please select both resume and job description files.");
+                return;
+            }
+
+            addUserMessage(`Uploading files: ${resume.name}, ${job.name}`);
+            
+            const formData = new FormData();
+            formData.append('resume', resume);
+            formData.append('job_description', job);
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    uploadedFiles = data;
+                    addSystemMessage("Files uploaded successfully! Starting analysis...");
+                    fileUploadArea.classList.add('hidden');
+                    startAnalysis();
+                } else {
+                    addSystemMessage(`Error: ${data.error}`);
+                }
+            })
+            .catch(error => {
+                addSystemMessage(`Error: ${error.message}`);
+            });
+        }
+
+        function startAnalysis() {
+            if (!uploadedFiles) {
+                addSystemMessage("No files uploaded. Please upload files first.");
+                return;
+            }
+
+            isAnalysisStarted = true;
+            chatInput.disabled = false;
+            chatInput.placeholder = "Type your message...";
+            sendBtn.disabled = false;
+
+            fetch('/start_analysis', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(uploadedFiles)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    addLoader();
+                    startStreaming();
+                } else {
+                    addSystemMessage(`Error: ${data.error}`);
+                }
+            })
+            .catch(error => {
+                addSystemMessage(`Error: ${error.message}`);
+            });
+        }
+
+        function startStreaming() {
+            if (eventSource) {
+                eventSource.close();
+            }
+
+            eventSource = new EventSource('/stream');
+            
+            eventSource.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                
+                if (data.message) {
+                    // Check if this is an input prompt
+                    if (data.message.startsWith('🔔 WAITING FOR INPUT:')) {
+                        const prompt = data.message.replace('🔔 WAITING FOR INPUT: ', '');
+                        addSystemMessage(prompt);
+                        // Enable input for user response
+                        chatInput.disabled = false;
+                        chatInput.placeholder = "Enter your response...";
+                        sendBtn.disabled = false;
+                    } else if (data.message === 'END') {
+                        removeLoader();
+                        eventSource.close();
+                        addSystemMessage("✅ Analysis completed!");
+                        chatInput.disabled = true;
+                        chatInput.placeholder = "Analysis complete";
+                        sendBtn.disabled = true;
+                    } else if (data.message && data.message.trim()) {
+                        addSystemMessage(data.message);
+                        // Show loader after each message (except input prompts)
+                        if (!data.message.startsWith('🔔 WAITING FOR INPUT:')) {
+                            setTimeout(() => {
+                                if (!chatInput.disabled) return; // Don't show loader if waiting for input
+                                addLoader();
+                            }, 500);
+                        }
+                    }
+                } else if (data.keepalive) {
+                    // Handle keepalive messages
+                }
+            };
+            
+            eventSource.onerror = function(event) {
+                addSystemMessage("Streaming error occurred.");
+                eventSource.close();
+            };
+        }
+
+        function sendMessage() {
+            const message = chatInput.value.trim();
+            
+            if (!message) return;
+            
+            addUserMessage(message);
+            chatInput.value = '';
+            
+            // Disable input and show loader
+            chatInput.disabled = true;
+            sendBtn.disabled = true;
+            chatInput.placeholder = "Processing...";
+            addLoader();
+            
+            // Send to backend
+            fetch('/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: message,
+                    user_type: 'user'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Message sent successfully - loader will be removed when next message arrives
+                }
+            })
+            .catch(error => {
+                removeLoader();
+                addSystemMessage(`Error: ${error.message}`);
+                chatInput.disabled = false;
+                sendBtn.disabled = false;
+                chatInput.placeholder = "Enter your response...";
+            });
+        }
+
+        function addSystemMessage(message) {
+            // remove any existing loader
+            removeLoader();
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'flex justify-start';
+            
+            // Check if message contains HTML tags for performance evaluation
+            const isHtmlContent = message.includes('<h1>') || message.includes('<h2>') || message.includes('<h3>') || 
+                                message.includes('<ul>') || message.includes('<li>') || message.includes('<strong>') ||
+                                message.includes('<div>') || message.includes('<p>') || message.includes('<hr>');
+            
+            if (isHtmlContent) {
+                messageDiv.innerHTML = `
+                    <div class="message-bubble system-message px-4 py-3">
+                        <div class="text-gray-800">${message}</div>
+                    </div>
+                `;
+            } else {
+                messageDiv.innerHTML = `
+                    <div class="message-bubble system-message px-4 py-3">
+                        <p class="text-gray-800">${escapeHtml(message)}</p>
+                    </div>
+                `;
+            }
+            messagesContainer.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        function addLoader() {
+            // remove any existing loader first
+            removeLoader();
+            
+            const loaderDiv = document.createElement('div');
+            loaderDiv.id = 'typing-loader';
+            loaderDiv.className = 'flex justify-start';
+            loaderDiv.innerHTML = `
+                <div class="message-bubble system-message px-4 py-3">
+                    <div class="flex items-center space-x-1">
+                        <div class="typing-indicator">
+                            <span class="dot"></span>
+                            <span class="dot"></span>
+                            <span class="dot"></span>
+                        </div>
+                        <span class="text-gray-600 text-sm ml-2">HireBuddy is thinking...</span>
+                    </div>
+                </div>
+            `;
+            messagesContainer.appendChild(loaderDiv);
+            scrollToBottom();
+        }
+
+        function removeLoader() {
+            const loader = document.getElementById('typing-loader');
+            if (loader) {
+                loader.remove();
+            }
+        }
+
+        function addUserMessage(message) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'flex justify-end';
+            messageDiv.innerHTML = `
+                <div class="message-bubble user-message px-4 py-3">
+                    <p>${escapeHtml(message)}</p>
+                </div>
+            `;
+            messagesContainer.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

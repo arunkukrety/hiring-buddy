@@ -31,8 +31,6 @@ class JobParserAgent:
         if not job_text.strip():
             raise ValueError("Job description file is empty")
         
-        print(f"🔍 Job Parser Agent: Analyzing job description from {job_description_path}")
-        
         try:
             # use portia's planning system to parse the job description
             plan = self._create_job_parsing_plan()
@@ -44,11 +42,9 @@ class JobParserAgent:
             # convert to JobDescription object
             job_desc = self._convert_to_job_description(parsed_data, job_text)
             
-            print(f"✅ Job Parser Agent: Successfully parsed job description")
             return job_desc
             
         except Exception as e:
-            print(f"❌ Job Parser Agent: Failed to parse job description: {str(e)}")
             # return a basic job description with the raw text
             return JobDescription(
                 title="Unknown Position",

@@ -49,64 +49,116 @@ class PlannerAgent:
     def analyze_resume(self, resume_path: str, job_description_path: str = None) -> ResumeAnalysisResult:
         """Complete workflow: resume → github → job matching → code analysis → assessment."""
         
-        print("🤖 Planner Agent: Starting complete analysis workflow")
-        
         try:
             # step 1: parse resume
-            print("📄 Step 1: Parsing resume...")
+            print("<h3><strong>📄 Analyzing resume using resume agent...</strong></h3>")
             candidate_facts = self.resume_agent.parse_resume(resume_path)
             candidate_info = self.job_matcher.convert_candidate_facts_to_dict(candidate_facts)
             
             # validate email extraction
             if not candidate_info.get('email') or candidate_info['email'].strip() == "":
-                print("⚠️ No email found in resume. Attempting to extract from GitHub profile...")
-                
                 # try to get email from GitHub profile if available
                 if candidate_facts.candidate.github:
                     github_url = candidate_facts.candidate.github[0]
-                    print(f"🔍 Checking GitHub profile for email: {github_url}")
                     
                     # get GitHub profile data
+                    print("<h3><strong>🔍 Attempting to retrieve email from GitHub profile...</strong></h3>")
                     github_analysis = self.github_agent.get_comprehensive_profile(github_url)
                     if github_analysis and hasattr(github_analysis, 'email') and github_analysis.email:
                         candidate_info['email'] = github_analysis.email
-                        print(f"✅ Found email in GitHub profile: {github_analysis.email}")
                     else:
-                        print("⚠️ No email found in GitHub profile either")
                         candidate_info['email'] = ""  # ensure it's empty string
                 else:
-                    print("⚠️ No GitHub profile available to check for email")
                     candidate_info['email'] = ""
             
             # final email validation
             if not candidate_info.get('email') or candidate_info['email'].strip() == "":
-                print("❌ CRITICAL: No email address found for candidate!")
-                print("📧 Please ensure the resume contains a valid email address")
-                print("📧 The system requires an email to send interview invitations")
-                print("📧 You can manually add the email to the resume or provide it separately")
+                email_warning = []
+                email_warning.append("<div style='background-color: #fef2f2; padding: 15px; border-radius: 8px; border-left: 4px solid #ef4444; margin: 10px 0;'>")
+                email_warning.append("<h3><strong>❌ CRITICAL: No email address found for candidate!</strong></h3>")
+                email_warning.append("<p>📧 The system requires an email to send interview invitations</p>")
+                email_warning.append("</div>")
+                print('\n'.join(email_warning))
                 
                 # ask user for email input
                 manual_email = input("\n📧 Please enter the candidate's email address (or press Enter to continue without email): ").strip()
                 if manual_email:
                     candidate_info['email'] = manual_email
-                    print(f"✅ Using manually provided email: {manual_email}")
+                    email_success = []
+                    email_success.append("<div style='background-color: #f0fdf4; padding: 10px; border-radius: 6px; border-left: 3px solid #22c55e;'>")
+                    email_success.append(f"<p><strong>✅ Using manually provided email:</strong> {manual_email}</p>")
+                    email_success.append("</div>")
+                    print('\n'.join(email_success))
                 else:
-                    print("⚠️ Continuing without email address - interview scheduling may fail")
+                    email_warning = []
+                    email_warning.append("<div style='background-color: #fffbeb; padding: 10px; border-radius: 6px; border-left: 3px solid #f59e0b;'>")
+                    email_warning.append("<p><strong>⚠️ Continuing without email</strong> - interview scheduling may fail</p>")
+                    email_warning.append("</div>")
+                    print('\n'.join(email_warning))
             
             # step 2: analyze github profile
-            print("🐙 Step 2: Analyzing GitHub profile...")
+            print("<h3><strong>🐙 Analyzing GitHub profile using GitHub agent...</strong></h3>")
             github_analysis = None
             if candidate_facts.candidate.github:
                 github_url = candidate_facts.candidate.github[0]
                 github_analysis = self.github_agent.get_comprehensive_profile(github_url)
+                
+                # Display GitHub analysis results
+                if github_analysis and hasattr(github_analysis, 'username'):
+                    github_status = []
+                    github_status.append("<div style='background-color: #f0fdf4; padding: 10px; border-radius: 6px; border-left: 3px solid #22c55e;'>")
+                    github_status.append(f"<p><strong>✅ GitHub Analysis Complete for:</strong> {github_analysis.username}</p>")
+                    
+                    if github_analysis.contributions:
+                        github_status.append(f"<p><strong>📊 Activity:</strong> {github_analysis.contributions.total_commits} commits, {github_analysis.contributions.total_prs} PRs, {github_analysis.contributions.total_contributions} total contributions</p>")
+                    
+                    if github_analysis.public_repos:
+                        github_status.append(f"<p><strong>📁 Repositories:</strong> {github_analysis.public_repos} public repositories analyzed</p>")
+                    
+                    # Show top languages from repositories
+                    if hasattr(github_analysis, 'repositories') and github_analysis.repositories:
+                        all_languages = set()
+                        for repo in github_analysis.repositories:
+                            if hasattr(repo, 'languages') and repo.languages:
+                                # repo.languages is a list, not a dict
+                                all_languages.update(repo.languages)
+                        
+                        if all_languages:
+                            # Convert set to list and take first 5
+                            lang_names = list(all_languages)[:5]
+                            github_status.append(f"<p><strong>💻 Top Languages:</strong> {', '.join(lang_names)}</p>")
+                    
+                    github_status.append("</div>")
+                    print('\n'.join(github_status))
+                else:
+                    github_error = []
+                    github_error.append("<div style='background-color: #fef2f2; padding: 10px; border-radius: 6px; border-left: 3px solid #ef4444;'>")
+                    github_error.append("<p><strong>⚠️ GitHub analysis completed with limited data</strong></p>")
+                    github_error.append("</div>")
+                    print('\n'.join(github_error))
             
             # step 3: job matching (if job description provided)
             job_match_result = None
             if job_description_path:
-                print("🎯 Step 3: Performing job-candidate matching...")
-                job_match_result = self._perform_job_matching(
-                    candidate_info, candidate_facts, github_analysis, job_description_path
-                )
+                print("<h3><strong>🎯 Performing job matching using job matcher...</strong></h3>")
+                try:
+                    job_match_result = self._perform_job_matching(
+                        candidate_info, candidate_facts, github_analysis, job_description_path
+                    )
+                except Exception as job_match_error:
+                    # Handle job matching errors (e.g., API quota exceeded)
+                    error_output = []
+                    error_output.append("<div style='background-color: #fef2f2; padding: 10px; border-radius: 6px; border-left: 3px solid #ef4444;'>")
+                    error_output.append("<p><strong>⚠️ Job matching failed due to API limitations</strong></p>")
+                    
+                    if "quota" in str(job_match_error).lower() or "429" in str(job_match_error):
+                        error_output.append("<p>Google API quota exceeded. GitHub analysis will still be available.</p>")
+                    else:
+                        error_output.append(f"<p>Error: {str(job_match_error)[:100]}...</p>")
+                    
+                    error_output.append("</div>")
+                    print('\n'.join(error_output))
+                    job_match_result = None
             
             # create result
             result = ResumeAnalysisResult(
@@ -116,11 +168,9 @@ class PlannerAgent:
                 job_match_result=job_match_result
             )
             
-            print("✅ Planner Agent: Workflow completed successfully")
             return result
             
         except Exception as e:
-            print(f"❌ Planner Agent: Workflow failed: {str(e)}")
             raise
     
     def _perform_job_matching(
@@ -133,32 +183,62 @@ class PlannerAgent:
         """Perform complete job matching workflow using tools."""
         
         # step 1: parse job description
-        print("📋 Step 3.1: Parsing job description...")
         job_description = self.job_matcher.parse_job_description(job_description_path)
         
         # step 2: intelligent skill matching
-        print("🎯 Step 3.2: Performing intelligent skill matching...")
         skill_matches = self.skill_matcher.intelligent_skill_matching_with_info(
             candidate_info, job_description, github_analysis
         )
         
         # step 3: identify relevant repositories
-        print("🔍 Step 3.3: Identifying job-relevant repositories...")
         relevant_repos = self.repository_analyzer.identify_relevant_repositories(
             github_analysis, job_description
         )
         
+        # Display repository analysis results
+        if relevant_repos:
+            repo_status = []
+            repo_status.append("<div style='background-color: #fffbeb; padding: 10px; border-radius: 6px; border-left: 3px solid #f59e0b;'>")
+            repo_status.append(f"<p><strong>🔍 Repository Analysis:</strong> Found {len(relevant_repos)} relevant repositories for {job_description.title}</p>")
+            
+            # Show top 3 most relevant repositories
+            top_repos = sorted(relevant_repos, key=lambda r: r.relevance_score, reverse=True)[:3]
+            for i, repo in enumerate(top_repos, 1):
+                repo_status.append(f"<p><strong>#{i}. {repo.name}</strong> (Relevance: {repo.relevance_score:.1f}) - {', '.join(repo.languages_used[:2]) if repo.languages_used else 'No languages detected'}</p>")
+            
+            repo_status.append("</div>")
+            print('\n'.join(repo_status))
+        else:
+            repo_warning = []
+            repo_warning.append("<div style='background-color: #fef2f2; padding: 10px; border-radius: 6px; border-left: 3px solid #ef4444;'>")
+            repo_warning.append("<p><strong>⚠️ No relevant repositories found</strong> for the job requirements</p>")
+            repo_warning.append("</div>")
+            print('\n'.join(repo_warning))
+        
         # step 4: perform deep code analysis
-        print("💻 Step 3.4: Performing deep code analysis...")
         code_analysis = {}
         if candidate_facts.candidate.github:
             github_url = candidate_facts.candidate.github[0]
             code_analysis = self.code_analyzer.analyze_repository_code_deep(
                 relevant_repos, job_description, github_url, self.github_agent
             )
+            
+            # Display code analysis results
+            if code_analysis and 'repositories_analyzed' in code_analysis:
+                code_status = []
+                code_status.append("<div style='background-color: #f0f9ff; padding: 10px; border-radius: 6px; border-left: 3px solid #3b82f6;'>")
+                code_status.append(f"<p><strong>💻 Code Analysis:</strong> Analyzed {code_analysis['repositories_analyzed']} repositories in detail</p>")
+                
+                if code_analysis.get('languages_found'):
+                    code_status.append(f"<p><strong>Languages Found:</strong> {', '.join(code_analysis['languages_found'][:5])}</p>")
+                
+                if code_analysis.get('frameworks_detected'):
+                    code_status.append(f"<p><strong>Frameworks Detected:</strong> {', '.join(code_analysis['frameworks_detected'][:3])}</p>")
+                
+                code_status.append("</div>")
+                print('\n'.join(code_status))
         
         # step 5: generate comprehensive assessment
-        print("📊 Step 3.5: Generating comprehensive assessment...")
         
         # add resume text to candidate info for skills extraction
         candidate_info_with_resume = candidate_info.copy()

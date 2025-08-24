@@ -42,7 +42,6 @@ class GitHubScanner:
     
     def scan_profile_comprehensive(self, username: str) -> Dict[str, Any]:
         """Comprehensive GitHub profile scan using GraphQL API."""
-        print(f"🔍 Scanning GitHub profile for: {username}")
         
         # GraphQL query for comprehensive profile data
         query = """
@@ -115,7 +114,6 @@ class GitHubScanner:
         variables = {"username": username}
         
         try:
-            print("⏳ Sending GraphQL request to GitHub API...")
             response = requests.post(
                 self.api_url, 
                 json={"query": query, "variables": variables}, 
@@ -125,27 +123,44 @@ class GitHubScanner:
             if response.status_code != 200:
                 raise Exception(f"❌ GraphQL query failed with status code {response.status_code}: {response.text}")
             
-            print("✅ Response received from GitHub API")
             data = response.json()
             
             # Check for GraphQL errors
             if "errors" in data:
-                print("⚠️ GraphQL Errors:", data["errors"])
                 raise Exception(f"GraphQL errors: {data['errors']}")
             
             user = data.get("data", {}).get("user")
             if not user:
                 raise Exception("⚠️ No user data found. Maybe wrong username or invalid token?")
             
-            # Process repositories
+            # Process repositories with better error handling
             repositories = []
-            for repo in user.get("repositories", {}).get("nodes", []):
-                if repo and not repo.get("isPrivate", True):
-                    repo_data = self._process_repository_data(repo)
-                    repositories.append(repo_data)
+            try:
+                for repo in user.get("repositories", {}).get("nodes", []):
+                    if repo and not repo.get("isPrivate", True):
+                        try:
+                            repo_data = self._process_repository_data(repo)
+                            repositories.append(repo_data)
+                        except Exception as e:
+                            print(f"⚠️ Error processing repository {repo.get('name', 'unknown')}: {e}")
+                            continue
+            except Exception as e:
+                print(f"⚠️ Error processing repositories list: {e}")
+                repositories = []
             
-            # Process contributions
-            contributions = self._process_contributions_data(user.get("contributionsCollection", {}))
+            # Process contributions with error handling
+            try:
+                contributions = self._process_contributions_data(user.get("contributionsCollection", {}))
+            except Exception as e:
+                print(f"⚠️ Error processing contributions: {e}")
+                contributions = {
+                    "total_contributions": 0,
+                    "total_commits": 0,
+                    "total_prs": 0,
+                    "total_reviews": 0,
+                    "active_days": 0,
+                    "contribution_calendar": []
+                }
             
             # Generate summary
             summary = self._generate_profile_summary(user, repositories, contributions)
@@ -172,25 +187,81 @@ class GitHubScanner:
             return result
             
         except Exception as e:
-            print(f"❌ GitHub scan failed: {str(e)}")
-            raise
+            print(f"❌ Error in scan_profile_comprehensive for {username}: {str(e)}")
+            # Return a basic error result instead of raising
+            return {
+                "username": username,
+                "name": "",
+                "bio": "",
+                "company": "",
+                "location": "",
+                "email": "",
+                "website": "",
+                "created_at": "",
+                "repositories": [],
+                "contributions": {
+                    "total_contributions": 0,
+                    "total_commits": 0,
+                    "total_prs": 0,
+                    "total_reviews": 0,
+                    "active_days": 0,
+                    "contribution_calendar": []
+                },
+                "summary": f"Error scanning profile: {str(e)}",
+                "scan_timestamp": datetime.now().isoformat(),
+                "scan_errors": [str(e)]
+            }
     
     def _process_repository_data(self, repo: Dict[str, Any]) -> GitHubRepository:
         """Process repository data from GraphQL response."""
-        # Extract languages
+        
+        # Add safety check for None repo
+        if not repo:
+            print("⚠️ Warning: Repository data is None")
+            return GitHubRepository(
+                name="unknown",
+                languages={},
+                commit_count=0,
+                pr_count=0,
+                relevance_score=0.0,
+                description="Repository data unavailable"
+            )
+        
+        # Extract languages with safety checks
         languages = {}
-        for lang_edge in repo.get("languages", {}).get("edges", []):
-            lang_name = lang_edge["node"]["name"]
-            lang_size = lang_edge["size"]
-            languages[lang_name] = lang_size
+        try:
+            for lang_edge in repo.get("languages", {}).get("edges", []):
+                if lang_edge and "node" in lang_edge and "name" in lang_edge["node"]:
+                    lang_name = lang_edge["node"]["name"]
+                    lang_size = lang_edge.get("size", 0)
+                    languages[lang_name] = lang_size
+        except Exception as e:
+            print(f"⚠️ Error processing languages for repo {repo.get('name', 'unknown')}: {e}")
+            languages = {}
         
-        # Get commit count
+        # Get commit count with safety checks
         commit_count = 0
-        if repo.get("defaultBranchRef", {}).get("target", {}).get("history", {}):
-            commit_count = repo["defaultBranchRef"]["target"]["history"]["totalCount"]
+        try:
+            default_branch = repo.get("defaultBranchRef")
+            if default_branch and isinstance(default_branch, dict):
+                target = default_branch.get("target")
+                if target and isinstance(target, dict):
+                    history = target.get("history")
+                    if history and isinstance(history, dict):
+                        commit_count = history.get("totalCount", 0)
+        except Exception as e:
+            print(f"⚠️ Error getting commit count for repo {repo.get('name', 'unknown')}: {e}")
+            commit_count = 0
         
-        # Get PR count
-        pr_count = repo.get("pullRequests", {}).get("totalCount", 0)
+        # Get PR count with safety checks
+        pr_count = 0
+        try:
+            pull_requests = repo.get("pullRequests")
+            if pull_requests and isinstance(pull_requests, dict):
+                pr_count = pull_requests.get("totalCount", 0)
+        except Exception as e:
+            print(f"⚠️ Error getting PR count for repo {repo.get('name', 'unknown')}: {e}")
+            pr_count = 0
         
         # Calculate relevance score
         relevance_score = self._calculate_repository_relevance(repo, languages, commit_count, pr_count)
@@ -323,7 +394,7 @@ class GitHubScanner:
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(results, f, indent=2, ensure_ascii=False)
         
-        print(f"💾 GitHub scan results saved to: {filepath}")
+       
         return str(filepath)
     
     def get_repository_data(self, username: str, repo_name: str) -> Dict[str, Any]:

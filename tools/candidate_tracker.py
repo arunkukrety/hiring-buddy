@@ -261,11 +261,6 @@ class CandidateTracker:
     def export_for_google_sheets(self) -> str:
         """Export tracking data in a format ready for Google Sheets import."""
         csv_path = str(self.csv_file.absolute())
-        print(f"📊 CSV file ready for Google Sheets import: {csv_path}")
-        print("📋 Instructions:")
-        print("1. Open Google Sheets")
-        print("2. Go to File > Import")
-        print("3. Upload the CSV file")
-        print("4. Choose 'Replace current sheet'")
-        print("5. Click 'Import data'")
+       
+        
         return csv_path

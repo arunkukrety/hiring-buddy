@@ -139,104 +139,82 @@ class ResumeParser:
     
     def _extract_pdf_text(self, pdf_path: Path) -> str:
         """Extract text from PDF files with multiple fallback methods."""
-        print(f"🔍 Attempting to extract text from PDF: {pdf_path}")
-        
+        # Simplified high-level notification; detailed per-page logs retained
         try:
             import PyPDF2
             with open(pdf_path, 'rb') as file:
                 pdf_reader = PyPDF2.PdfReader(file)
                 text = ""
-                print(f"📄 PDF has {len(pdf_reader.pages)} pages")
-                
                 for page_num, page in enumerate(pdf_reader.pages):
                     page_text = page.extract_text()
-                    print(f"📝 Page {page_num + 1}: {len(page_text)} characters")
                     if page_text.strip():  # Only add non-empty pages
                         text += f"\n--- Page {page_num + 1} ---\n"
                         text += page_text + "\n"
                 
                 if not text.strip():
-                    print("⚠️ PyPDF2 extracted no text, trying alternative methods...")
                     return self._extract_text_alternative_pdf(pdf_path)
                 
-                print(f"✅ PyPDF2 extracted {len(text)} characters total")
                 return text
-                
+
         except ImportError:
-            print("⚠️ PyPDF2 not available, trying alternative methods...")
             return self._extract_text_alternative_pdf(pdf_path)
         except Exception as e:
-            print(f"❌ PyPDF2 extraction failed: {e}")
             return self._extract_text_alternative_pdf(pdf_path)
     
     def _extract_text_alternative_pdf(self, pdf_path: Path) -> str:
         """Alternative PDF text extraction methods."""
-        print("🔄 Trying alternative PDF extraction methods...")
         
         try:
             # Try with pdfplumber if available
             import pdfplumber
-            print("📖 Trying pdfplumber...")
             with pdfplumber.open(pdf_path) as pdf:
                 text = ""
                 for page_num, page in enumerate(pdf.pages):
                     page_text = page.extract_text()
-                    print(f"📝 Page {page_num + 1}: {len(page_text) if page_text else 0} characters")
                     if page_text:
                         text += f"\n--- Page {page_num + 1} ---\n"
                         text += page_text + "\n"
                 
                 if text.strip():
-                    print(f"✅ pdfplumber extracted {len(text)} characters")
                     return text
-                else:
-                    print("⚠️ pdfplumber extracted no text")
                     
         except ImportError:
-            print("⚠️ pdfplumber not available")
-        except Exception as e:
-            print(f"❌ pdfplumber extraction failed: {e}")
+            pass
+        except Exception:
+            pass
         
         try:
             # Try with pymupdf if available
             import fitz  # PyMuPDF
-            print("📖 Trying PyMuPDF...")
             doc = fitz.open(pdf_path)
             text = ""
             for page_num in range(len(doc)):
                 page = doc.load_page(page_num)
                 page_text = page.get_text()
-                print(f"📝 Page {page_num + 1}: {len(page_text) if page_text else 0} characters")
                 if page_text.strip():
                     text += f"\n--- Page {page_num + 1} ---\n"
                     text += page_text + "\n"
             doc.close()
             
             if text.strip():
-                print(f"✅ PyMuPDF extracted {len(text)} characters")
                 return text
-            else:
-                print("⚠️ PyMuPDF extracted no text")
                 
         except ImportError:
-            print("⚠️ PyMuPDF not available")
-        except Exception as e:
-            print(f"❌ PyMuPDF extraction failed: {e}")
+            pass
+        except Exception:
+            pass
         
         # Try basic file reading as last resort
         try:
-            print("📖 Trying basic file reading...")
             with open(pdf_path, 'r', encoding='utf-8') as f:
                 content = f.read()
-                print(f"📝 Basic reading: {len(content)} characters")
                 if content.strip():
                     return content
-        except Exception as e:
-            print(f"❌ Basic file reading failed: {e}")
+        except Exception:
+            pass
         
         # Final fallback - return a message indicating OCR is needed
         error_msg = f"PDF content from {pdf_path} - Text extraction failed. This PDF may require OCR processing or the content may be in image format."
-        print(f"❌ {error_msg}")
         return error_msg
     
     def _extract_docx_text(self, path: Path) -> str:
@@ -295,9 +273,6 @@ class ResumeParser:
     
     def _parse_with_llm(self, resume_text: str, llm) -> Dict[str, Any]:
         """Use LLM to parse resume text into structured data."""
-        
-        print(f"🤖 Sending {len(resume_text)} characters to LLM for parsing")
-        print(f"📄 First 500 characters: {resume_text[:500]}...")
         
         # Create a comprehensive prompt for LLM parsing
         prompt = f"""
@@ -384,7 +359,6 @@ JSON OUTPUT:
 """
         
         try:
-            print("🤖 Calling LLM...")
             # Create a message for the LLM
             from portia.model import Message
             message = Message(role="user", content=prompt)
@@ -394,8 +368,6 @@ JSON OUTPUT:
             
             # Parse the JSON response
             response_text = response.content
-            print(f"🤖 LLM response length: {len(response_text)} characters")
-            print(f"🤖 LLM response preview: {response_text[:200]}...")
             
             # Save LLM response preview to output file
             self._save_llm_response_preview(response_text, resume_text[:100])
@@ -406,14 +378,11 @@ JSON OUTPUT:
             
             if start_idx != -1 and end_idx != 0:
                 json_str = response_text[start_idx:end_idx]
-                print(f"🤖 Found JSON: {len(json_str)} characters")
                 parsed_data = json.loads(json_str)
-                print(f"✅ Successfully parsed JSON with keys: {list(parsed_data.keys())}")
             else:
                 raise ValueError("No valid JSON found in LLM response")
                 
         except Exception as e:
-            print(f"❌ LLM parsing failed: {str(e)}")
             # Fallback to basic parsing if LLM fails
             parsed_data = self._fallback_parsing(resume_text)
             parsed_data["parse_warnings"] = [f"LLM parsing failed: {str(e)}. Using fallback parsing."]
@@ -440,10 +409,11 @@ JSON OUTPUT:
             with open(output_path, 'w', encoding='utf-8') as f:
                 json.dump(clean_json, f, indent=2, ensure_ascii=False)
             
-            print(f"💾 Clean LLM response JSON saved to: {output_path}")
+            # Only print if successful without errors
+            
             
         except Exception as e:
-            print(f"⚠️ Failed to save LLM response preview: {str(e)}")
+            pass  # Silently fail to avoid cluttering output
     
     def _extract_clean_json(self, llm_response: str) -> Dict[str, Any]:
         """Extract clean JSON from LLM response, removing markdown formatting."""
@@ -468,11 +438,9 @@ JSON OUTPUT:
             try:
                 return json.loads(json_str)
             except json.JSONDecodeError as e:
-                print(f"⚠️ Failed to parse extracted JSON: {e}")
                 # Return the raw response as fallback
                 return {"raw_response": llm_response, "parse_error": str(e)}
         else:
-            print("⚠️ No JSON found in LLM response")
             return {"raw_response": llm_response, "parse_error": "No JSON found"}
     
     def _fallback_parsing(self, resume_text: str) -> Dict[str, Any]:
