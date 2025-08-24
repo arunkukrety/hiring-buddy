@@ -55,6 +55,7 @@ class CandidateFacts(BaseModel):
     skills: Skills = Field(default_factory=Skills)
     projects: List[ProjectEntry] = Field(default_factory=list)
     parse_warnings: List[str] = Field(default_factory=list)
+    resume_text: Optional[str] = Field(default=None, description="Original resume text for skills extraction")
 
     model_config = {
         "extra": "forbid",

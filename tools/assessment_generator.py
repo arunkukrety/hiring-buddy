@@ -8,6 +8,8 @@ from portia.builder.reference import Input
 
 from utils.schemas import JobDescription, RepositoryAnalysis, CandidateFacts
 from agents.github_agent import GitHubProfileData
+from tools.ai_evaluator import AIEvaluator
+from tools.skills_extractor import SkillsExtractor
 
 
 class AssessmentGenerator:
@@ -15,6 +17,8 @@ class AssessmentGenerator:
     
     def __init__(self, portia: Portia):
         self.portia = portia
+        self.ai_evaluator = AIEvaluator()
+        self.skills_extractor = SkillsExtractor()
     
     def generate_comprehensive_assessment_with_info(
         self, 
@@ -25,48 +29,71 @@ class AssessmentGenerator:
         code_analysis: Dict[str, Any],
         skill_matches: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
-        """Generate comprehensive assessment and recommendations with intelligent scoring using candidate info."""
+        """Generate comprehensive assessment and recommendations using AI-powered evaluation."""
         
-        # calculate intelligent match score
-        score_breakdown = self._calculate_intelligent_match_score_with_info(
-            candidate_info, job_description, github_analysis, 
-            relevant_repos, code_analysis, skill_matches
+        print("🤖 Starting AI-powered comprehensive assessment...")
+        
+        # extract skills from resume and GitHub data
+        resume_skills = self.skills_extractor.extract_skills_from_resume(
+            candidate_info.get('resume_text', '')
         )
-        overall_score = score_breakdown["overall_score"]
         
-        # generate assessment
-        assessment = self._create_assessment_plan()
-        result = self.portia.run_plan(assessment, plan_run_inputs={
-            "candidate_data": candidate_info,
-            "job_requirements": job_description.dict(),
-            "skill_matches": skill_matches,
-            "github_analysis": github_analysis.dict() if github_analysis else {},
-            "relevant_repos": [repo.dict() for repo in relevant_repos],
-            "code_analysis": code_analysis
-        })
+        github_skills = self.skills_extractor.extract_skills_from_github(
+            github_analysis.dict() if github_analysis else {}
+        )
         
-        # get the final output which should contain the assessment
-        if result.outputs.final_output:
-            assessment_data = result.outputs.final_output.get_value()
-        else:
-            # fallback: get the last step output
-            step_outputs = list(result.outputs.step_outputs.values())
-            assessment_data = step_outputs[-1].get_value() if step_outputs else {}
+        # combine skills
+        combined_skills = self.skills_extractor.combine_skills(resume_skills, github_skills)
         
-        # handle the case where assessment_data is a string
-        if isinstance(assessment_data, str):
-            # extract assessment from text
-            return self._extract_assessment_from_text(assessment_data, overall_score)
+        # perform AI-powered evaluation
+        try:
+            llm = self.portia.config.get_generative_model("google/gemini-2.0-flash")
+        except:
+            try:
+                llm = self.portia.config.get_generative_model("google/gemini-1.5-flash")
+            except:
+                llm = self.portia.config.get_generative_model("google/gemini-1.0-pro")
         
-        # ensure assessment_data is a dictionary
-        if not isinstance(assessment_data, dict):
-            assessment_data = {}
+        ai_evaluation = self.ai_evaluator.evaluate_candidate(
+            job_description=job_description.dict(),
+            resume_data=candidate_info,
+            github_data=github_analysis.dict() if github_analysis else {},
+            skills_data=combined_skills.dict(),
+            llm=llm
+        )
         
-        return {
-            "overall_assessment": assessment_data.get("overall_assessment", "Assessment completed"),
-            "recommendations": assessment_data.get("recommendations", []),
-            "match_score": overall_score
+        # create comprehensive assessment result
+        assessment_result = {
+            "overall_assessment": ai_evaluation.technical_assessment,
+            "recommendations": ai_evaluation.recommendations,
+            "match_score": self._normalize_score(ai_evaluation.overall_score),
+            "score_breakdown": {
+                "skill_match": {
+                    "score": self._normalize_score(ai_evaluation.skill_match_score),
+                    "reasoning": ai_evaluation.skill_match_reasoning
+                },
+                "experience_relevance": {
+                    "score": self._normalize_score(ai_evaluation.experience_relevance_score),
+                    "reasoning": ai_evaluation.experience_reasoning
+                },
+                "github_activity": {
+                    "score": self._normalize_score(ai_evaluation.github_activity_score),
+                    "reasoning": ai_evaluation.github_reasoning
+                },
+                "code_quality": {
+                    "score": self._normalize_score(ai_evaluation.code_quality_score),
+                    "reasoning": ai_evaluation.code_quality_reasoning
+                }
+            },
+            "strengths": ai_evaluation.strengths,
+            "weaknesses": ai_evaluation.weaknesses,
+            "cultural_fit": ai_evaluation.cultural_fit,
+            "final_recommendation": ai_evaluation.final_recommendation,
+            "detected_skills": combined_skills.dict(),
+            "scoring_criteria": self._get_scoring_criteria()
         }
+        
+        return assessment_result
     
     def generate_comprehensive_assessment(
         self, 
@@ -117,7 +144,10 @@ class AssessmentGenerator:
         return {
             "overall_assessment": assessment_data.get("overall_assessment", "Assessment completed"),
             "recommendations": assessment_data.get("recommendations", []),
-            "match_score": overall_score
+            "match_score": overall_score,
+            "score_breakdown": {
+                "scoring_criteria": self._get_scoring_criteria()
+            }
         }
     
     def _calculate_intelligent_match_score_with_info(
@@ -449,5 +479,114 @@ class AssessmentGenerator:
                     "link": proj.link or ""
                 }
                 for proj in candidate_facts.projects
+            ]
+        }
+
+    def _normalize_score(self, score: float) -> float:
+        """Normalize score to ensure it's between 0 and 1 (0-100%)."""
+        
+        # if score is already between 0 and 1, return as is
+        if 0 <= score <= 1:
+            return score
+        
+        # if score is between 1 and 100, convert to decimal
+        if 1 < score <= 100:
+            return score / 100.0
+        
+        # if score is greater than 100, cap it at 1.0
+        if score > 100:
+            return 1.0
+        
+        # if score is negative, return 0
+        return 0.0
+    
+    def _get_scoring_criteria(self) -> Dict[str, Any]:
+        """Get transparent scoring criteria for HR understanding."""
+        
+        return {
+            "overview": "Candidate evaluation is based on a comprehensive scoring system that assesses multiple dimensions of technical and professional fit.",
+            "scoring_components": {
+                "skill_match": {
+                    "weight": "40%",
+                    "description": "How well the candidate's technical skills align with job requirements",
+                    "criteria": [
+                        "Required skills match (70% of skill score)",
+                        "Preferred skills match (30% of skill score)",
+                        "Skill depth and proficiency level",
+                        "Relevance to the specific role"
+                    ],
+                    "scoring_scale": {
+                        "90-100%": "Excellent skill alignment with all required skills",
+                        "80-89%": "Strong skill alignment with most required skills",
+                        "70-79%": "Good skill alignment with some gaps",
+                        "60-69%": "Moderate skill alignment with significant gaps",
+                        "Below 60%": "Poor skill alignment with major gaps"
+                    }
+                },
+                "experience_relevance": {
+                    "weight": "25%",
+                    "description": "Relevance of work experience to the job requirements",
+                    "criteria": [
+                        "Industry experience relevance",
+                        "Role responsibility alignment",
+                        "Project complexity and scope",
+                        "Technology stack overlap"
+                    ],
+                    "scoring_scale": {
+                        "90-100%": "Highly relevant experience in similar roles",
+                        "80-89%": "Relevant experience with good transferability",
+                        "70-79%": "Some relevant experience with gaps",
+                        "60-69%": "Limited relevant experience",
+                        "Below 60%": "Minimal relevant experience"
+                    }
+                },
+                "github_activity": {
+                    "weight": "20%",
+                    "description": "GitHub activity and open source contributions",
+                    "criteria": [
+                        "Repository activity and contributions",
+                        "Code quality and best practices",
+                        "Collaboration and community engagement",
+                        "Project complexity and relevance"
+                    ],
+                    "scoring_scale": {
+                        "90-100%": "Exceptional GitHub activity with high-quality contributions",
+                        "80-89%": "Strong GitHub activity with good contributions",
+                        "70-79%": "Good GitHub activity with some quality projects",
+                        "60-69%": "Moderate GitHub activity",
+                        "Below 60%": "Limited GitHub activity"
+                    }
+                },
+                "code_quality": {
+                    "weight": "15%",
+                    "description": "Code quality and technical best practices",
+                    "criteria": [
+                        "Code organization and structure",
+                        "Documentation quality",
+                        "Testing practices",
+                        "Performance considerations"
+                    ],
+                    "scoring_scale": {
+                        "90-100%": "Excellent code quality with best practices",
+                        "80-89%": "Good code quality with some best practices",
+                        "70-79%": "Acceptable code quality",
+                        "60-69%": "Basic code quality",
+                        "Below 60%": "Poor code quality"
+                    }
+                }
+            },
+            "overall_score_interpretation": {
+                "90-100%": "Exceptional candidate - Strongly recommend for interview",
+                "80-89%": "Strong candidate - Recommend for interview",
+                "70-79%": "Good candidate - Consider for interview with reservations",
+                "60-69%": "Moderate candidate - Consider for junior role or with training",
+                "Below 60%": "Weak candidate - Not recommended for this role"
+            },
+            "transparency_notes": [
+                "All scores are calculated using objective criteria and AI analysis",
+                "Scores are normalized to ensure consistency across evaluations",
+                "Final recommendations consider both technical and cultural fit",
+                "HR can review detailed reasoning for each scoring component",
+                "Scores are meant to guide decisions, not replace human judgment"
             ]
         }

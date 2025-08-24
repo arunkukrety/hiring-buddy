@@ -561,7 +561,8 @@ class ResumeAgent:
             experience=experience,
             skills=skills,
             projects=projects,
-            parse_warnings=parse_warnings
+            parse_warnings=parse_warnings,
+            resume_text=getattr(resume_data, 'text', '')  # Include original resume text
         )
 
 

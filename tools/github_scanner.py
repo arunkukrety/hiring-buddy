@@ -325,4 +325,113 @@ class GitHubScanner:
         
         print(f"💾 GitHub scan results saved to: {filepath}")
         return str(filepath)
+    
+    def get_repository_data(self, username: str, repo_name: str) -> Dict[str, Any]:
+        """Get detailed data for a specific repository."""
+        print(f"🔍 Getting repository data for: {username}/{repo_name}")
+        
+        # GraphQL query for specific repository
+        query = """
+        query($username: String!, $repo_name: String!) {
+          repository(owner: $username, name: $repo_name) {
+            name
+            description
+            url
+            stargazerCount
+            forkCount
+            isPrivate
+            isFork
+            primaryLanguage {
+              name
+              color
+            }
+            languages(first: 10, orderBy: {field: SIZE, direction: DESC}) {
+              edges {
+                size
+                node {
+                  name
+                  color
+                }
+              }
+            }
+            defaultBranchRef {
+              target {
+                ... on Commit {
+                  history(first: 1) {
+                    totalCount
+                  }
+                }
+              }
+            }
+            pullRequests(first: 10, states: MERGED) {
+              totalCount
+            }
+            pushedAt
+            createdAt
+            repositoryTopics(first: 10) {
+              nodes {
+                topic {
+                  name
+                }
+              }
+            }
+          }
+        }
+        """
+        
+        try:
+            response = requests.post(
+                self.api_url,
+                json={"query": query, "variables": {"username": username, "repo_name": repo_name}},
+                headers=self.headers
+            )
+            response.raise_for_status()
+            
+            data = response.json()
+            if "errors" in data:
+                print(f"❌ GraphQL errors: {data['errors']}")
+                return {}
+            
+            repo_data = data.get("data", {}).get("repository")
+            if not repo_data:
+                print(f"❌ Repository not found: {username}/{repo_name}")
+                return {}
+            
+            # Extract languages
+            languages = {}
+            for edge in repo_data.get("languages", {}).get("edges", []):
+                lang_name = edge["node"]["name"]
+                lang_size = edge["size"]
+                languages[lang_name] = lang_size
+            
+            # Extract topics
+            topics = [topic["topic"]["name"] for topic in repo_data.get("repositoryTopics", {}).get("nodes", [])]
+            
+            # Get commit count
+            commit_count = 0
+            if repo_data.get("defaultBranchRef", {}).get("target", {}).get("history"):
+                commit_count = repo_data["defaultBranchRef"]["target"]["history"]["totalCount"]
+            
+            # Get PR count
+            pr_count = repo_data.get("pullRequests", {}).get("totalCount", 0)
+            
+            return {
+                "name": repo_data["name"],
+                "description": repo_data.get("description", ""),
+                "url": repo_data["url"],
+                "languages": languages,
+                "topics": topics,
+                "commit_count": commit_count,
+                "pr_count": pr_count,
+                "stars": repo_data.get("stargazerCount", 0),
+                "forks": repo_data.get("forkCount", 0),
+                "is_private": repo_data.get("isPrivate", False),
+                "is_fork": repo_data.get("isFork", False),
+                "pushed_at": repo_data.get("pushedAt"),
+                "created_at": repo_data.get("createdAt")
+            }
+            
+        except Exception as e:
+            print(f"❌ Error getting repository data: {str(e)}")
+            return {}
 

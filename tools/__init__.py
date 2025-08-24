@@ -8,6 +8,8 @@ from .skill_matcher import SkillMatcher
 from .repository_analyzer import RepositoryAnalyzer
 from .assessment_generator import AssessmentGenerator
 from .code_analyzer import CodeAnalyzer
+from .skills_extractor import SkillsExtractor, SkillsData
+from .ai_evaluator import AIEvaluator, AIEvaluationResult
 
 __all__ = [
     "GitHubScanner",
@@ -18,5 +20,9 @@ __all__ = [
     "SkillMatcher",
     "RepositoryAnalyzer",
     "AssessmentGenerator",
-    "CodeAnalyzer"
+    "CodeAnalyzer",
+    "SkillsExtractor",
+    "SkillsData",
+    "AIEvaluator",
+    "AIEvaluationResult"
 ]

@@ -38,7 +38,7 @@ class PlannerAgent:
         self.portia = portia
         self.resume_agent = ResumeAgent(portia)
         self.github_agent = GitHubAgent(portia)
-        
+    
         # initialize tools
         self.job_matcher = JobMatcher(portia)
         self.skill_matcher = SkillMatcher()
@@ -56,6 +56,42 @@ class PlannerAgent:
             print("📄 Step 1: Parsing resume...")
             candidate_facts = self.resume_agent.parse_resume(resume_path)
             candidate_info = self.job_matcher.convert_candidate_facts_to_dict(candidate_facts)
+            
+            # validate email extraction
+            if not candidate_info.get('email') or candidate_info['email'].strip() == "":
+                print("⚠️ No email found in resume. Attempting to extract from GitHub profile...")
+                
+                # try to get email from GitHub profile if available
+                if candidate_facts.candidate.github:
+                    github_url = candidate_facts.candidate.github[0]
+                    print(f"🔍 Checking GitHub profile for email: {github_url}")
+                    
+                    # get GitHub profile data
+                    github_analysis = self.github_agent.get_comprehensive_profile(github_url)
+                    if github_analysis and hasattr(github_analysis, 'email') and github_analysis.email:
+                        candidate_info['email'] = github_analysis.email
+                        print(f"✅ Found email in GitHub profile: {github_analysis.email}")
+                    else:
+                        print("⚠️ No email found in GitHub profile either")
+                        candidate_info['email'] = ""  # ensure it's empty string
+                else:
+                    print("⚠️ No GitHub profile available to check for email")
+                    candidate_info['email'] = ""
+            
+            # final email validation
+            if not candidate_info.get('email') or candidate_info['email'].strip() == "":
+                print("❌ CRITICAL: No email address found for candidate!")
+                print("📧 Please ensure the resume contains a valid email address")
+                print("📧 The system requires an email to send interview invitations")
+                print("📧 You can manually add the email to the resume or provide it separately")
+                
+                # ask user for email input
+                manual_email = input("\n📧 Please enter the candidate's email address (or press Enter to continue without email): ").strip()
+                if manual_email:
+                    candidate_info['email'] = manual_email
+                    print(f"✅ Using manually provided email: {manual_email}")
+                else:
+                    print("⚠️ Continuing without email address - interview scheduling may fail")
             
             # step 2: analyze github profile
             print("🐙 Step 2: Analyzing GitHub profile...")
@@ -123,8 +159,13 @@ class PlannerAgent:
         
         # step 5: generate comprehensive assessment
         print("📊 Step 3.5: Generating comprehensive assessment...")
+        
+        # add resume text to candidate info for skills extraction
+        candidate_info_with_resume = candidate_info.copy()
+        candidate_info_with_resume['resume_text'] = candidate_facts.resume_text or ''
+        
         assessment = self.assessment_generator.generate_comprehensive_assessment_with_info(
-            candidate_info, job_description, github_analysis, 
+            candidate_info_with_resume, job_description, github_analysis, 
             relevant_repos, code_analysis, skill_matches
         )
         

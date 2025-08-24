@@ -318,11 +318,18 @@ IMPORTANT INSTRUCTIONS:
 9. Handle PDF formatting issues like line breaks, spacing, and layout artifacts
 10. Extract information even if the formatting is imperfect or contains OCR artifacts
 
+CRITICAL EMAIL EXTRACTION:
+- Look VERY carefully for email addresses in the resume text
+- Common email patterns: name@domain.com, name@company.com, etc.
+- Check in contact sections, headers, footers, and throughout the document
+- If you find any email-like text, extract it as the email field
+- If no email is found, leave the email field as empty string but add a warning in parse_warnings
+
 CRITICAL: You MUST return the JSON in EXACTLY this format with these exact field names and structure:
 
 {{
     "candidate_name": "Full name of the candidate",
-    "email": "Primary email address",
+    "email": "Primary email address (REQUIRED - look carefully for this)",
     "phone": "Primary phone number", 
     "linkedin": "LinkedIn profile URL",
     "github": "GitHub profile URL",
@@ -362,6 +369,7 @@ CRITICAL: You MUST return the JSON in EXACTLY this format with these exact field
 }}
 
 SPECIFIC GUIDELINES:
+- EMAIL IS CRITICAL: Search thoroughly for email addresses in all formats
 - If a field is not found, use empty string for strings, empty list for arrays
 - Extract all links you can find (GitHub, LinkedIn, portfolio, project links, etc.)
 - Categorize skills appropriately (programming languages as primary, frameworks as secondary, tools as tools)

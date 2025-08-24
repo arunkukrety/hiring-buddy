@@ -10,6 +10,8 @@ A dynamic resume analysis system built with Portia AI that can parse any resume 
 - **Structured Output**: Returns standardized JSON with candidate information
 - **Robust PDF Processing**: Multiple fallback methods for PDF text extraction
 - **Portia AI Integration**: Built on Portia's planning and execution framework
+- **Google Calendar Integration**: Automated interview scheduling with Google Meet
+- **Email Automation**: Automated candidate and manager notifications
 
 ## 📋 Extracted Information
 
@@ -68,10 +70,30 @@ python main.py
 python main.py
 ```
 
+### Google Calendar Integration
+
+The system now uses Portia AI's built-in Google Calendar integration for automated interview scheduling:
+
+1. **OAuth Authentication**: First-time setup requires Google OAuth authentication
+2. **Calendar Events**: Automatically creates Google Calendar events with Google Meet
+3. **Email Notifications**: Sends automated emails to candidates and hiring managers
+4. **Interview Scheduling**: Schedules interviews 7 days from analysis completion
+
+**Setup Requirements:**
+- Valid `PORTIA_API_KEY` from [Portia Labs](https://app.portialabs.ai/)
+- Google account with Calendar and Gmail access
+- OAuth authentication (handled automatically during first use)
+
 ### Test Smart GitHub Agent
 ```bash
 # Test comprehensive GitHub profile analysis functionality
 python test_smart_github_agent.py
+```
+
+### Test Portia AI Calendar Integration
+```bash
+# Test Google Calendar and Gmail integration
+python test_portia_calendar.py
 ```
 
 ## 📁 Project Structure
@@ -92,7 +114,14 @@ GithubPortia/
 │   ├── __init__.py
 │   ├── tools.py                # General tools
 │   ├── github_scanner.py       # GitHub profile scanner
-│   └── resume_parser.py        # Comprehensive resume parser (text + LLM)
+│   ├── resume_parser.py        # Comprehensive resume parser (text + LLM)
+│   ├── candidate_tracker.py    # Candidate tracking and analytics
+│   └── email_templates.py      # Email template management
+├── agents/                     # Agent modules
+│   ├── __init__.py
+│   ├── planner_agent.py        # Planning agent for analysis
+│   ├── scheduler_agent.py      # Interview scheduling agent
+│   └── github_agent.py         # GitHub profile analysis agent
 ├── env.example                 # Environment variables template
 ├── pyproject.toml              # Project configuration
 └── README.md                   # This file
@@ -102,8 +131,15 @@ GithubPortia/
 
 Create a `.env` file with:
 ```env
-OPENAI_API_KEY=your_openai_key_here
-GOOGLE_API_KEY=your_google_key_here
+# API Keys - Set GOOGLE_API_KEY for Gemini (recommended)
+GOOGLE_API_KEY=your_google_api_key_here
+# OPENAI_API_KEY=your_openai_api_key_here  # Optional fallback
+
+# GitHub Token for GitHub analysis
+GITHUB_TOKEN=your_github_token_here
+
+# Portia Cloud Configuration (Required for email/calendar features)
+PORTIA_API_KEY=your_portia_api_key_here
 ```
 
 ## 📊 Example Output
