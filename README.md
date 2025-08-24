@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.13+-blue?style=for-the-badge&logo=python)](https://python.org)
 [![Portia AI](https://img.shields.io/badge/Powered_by-Portia_AI-purple?style=for-the-badge)](https://portialabs.ai)
 
-*Intelligent recruitment automation - from resume parsing to interview scheduling*
+*Your smart hiring assistant*
 
 </div>
 
@@ -14,32 +14,30 @@
 
 [![Watch HireBuddy in Action](https://img.youtube.com/vi/ABo2hvASLmk/hqdefault.jpg)](https://www.youtube.com/watch?v=ABo2hvASLmk "HireBuddy End-to-End Demo")
 
-End‑to‑end automated hiring workflow in under 5 minutes (click thumbnail to watch).
 
 ## What is HireBuddy?
 
-HireBuddy is a lean AI agent system that turns an uploaded resume + job description into a scored, evidence‑backed hiring decision (and optional scheduled interview) in minutes.
+HireBuddy takes a resume and a job description to quickly analyze a candidate's experience, projects, and GitHub profile, including repositories, activity, and languages. It then produces a transparent score with a clear breakdown of the factors. If a human reviewer approves the analysis, the system automatically prepares the interview email and scheduling details in one seamless flow.
 
 **Problem**
-Early‑stage screening is slow, subjective, and fragmented:
-- Manual resume parsing is repetitive
-- GitHub review (if done) is shallow or skipped
-- Match rationale is rarely documented
-- Scheduling and email follow‑ups burn time
+Early screening today is slow and inconsistent:
+- Re-reading similar resumes
+- Skipping or shallow GitHub checks
+- Little written reasoning
+- Manual email + scheduling steps
 
-**Crux**
 Hiring teams need fast, consistent, explainable evaluation without adding another bloated platform.
 
 **Solution**
-Multi‑agent workflow (Resume, GitHub, Matching, Scheduler) powered by Portia AI:
-- Extracts structured candidate profile
-- Performs deep GitHub repo + activity relevance analysis
-- Generates transparent weighted match score with reasons
-- Streams every step for trust (no hidden black box)
-- Optionally drafts emails & books the interview
+Multi‑agent flow (Resume, GitHub, Matching, Scheduler) powered by Portia AI:
+- Builds a structured candidate profile
+- Analyzes repos, activity, languages
+- Produces a weighted score with plain reasons
+- Streams each step so you see progress
+- Can draft emails and prep an interview slot
 
 **How It Solves It**
-Automation compresses hours of fragmented manual work into a single deterministic flow: ingest → enrich → score → decide → communicate. Standardized scoring + captured rationale reduce bias and create an auditable trail while preserving recruiter judgment at the decision gate.
+Everything runs as one simple flow: ingest → enrich → score → decide → (optional) schedule. Standard scoring plus saved reasoning reduces bias and keeps a record while leaving the final call to the recruiter.
 
 ## System Architecture
 
@@ -60,171 +58,37 @@ HireBuddy uses a multi-agent architecture where specialized AI agents collaborat
 
 Each agent specializes in their domain while the supervisor coordinates the entire evaluation process.
 
-## Portia AI Core (How We Use It)
-
-Portia AI is the backbone of this project. Every agent you see (planner/supervisor, resume, GitHub, scheduler) is a Portia agent. Portia handles:
-- Orchestrating the exact order of steps (no ad‑hoc scripts)
-- Passing structured outputs from one agent/tool to the next (shared context)
-- Managing tool calls (so code just declares intent, not plumbing)
-- Streaming intermediate status so the UI shows real progress
-- Containing failures (a later step can still run if an earlier non‑critical tool partially fails)
-
-### Where Portia AI Is Used in the Flow
-1. Upload → planner stores raw files in context
-2. Resume parsing tool -> structured candidate profile added to context
-3. GitHub scan tool -> repos, languages, activity added
-4. Matching + assessment tools -> scores + reasoning objects
-5. Decision + email/scheduling -> scheduler tool prepares calendar + message artifacts
-6. Tracking tool appends final decision for audit
-
-### Portia Agent Roles (Plain Words)
-- Planner: decides next step, merges results, builds the final narrative
-- Resume Agent: extracts clean structured data (skills, experience, education)
-- GitHub Agent: pulls profile + repos + contribution signals, filters relevance
-- Scheduler Agent: prepares interview invite artifacts (email text, calendar details)
-
-### Tools We Call Through Portia
-- resume_parser: multi‑library text extraction + normalization
-- github_scanner: GraphQL + heuristic repo relevance & activity metrics
-- job_matcher: compares candidate skill/profile vectors to job requirements
-- assessment_generator: composes weighted scoring + reasoning breakdown
-- candidate_tracker: persists decision row (CSV/JSON)
-- code / repository analyzers (where enabled): language spread, complexity hints
-- calendar/email integration (via scheduler) for final scheduling output
-
-### Why Portia Fits Here
-Simple: we needed a clean multi‑agent pipeline without writing custom orchestration glue. Portia gives shared state, consistent tool wiring, retry hooks, and streaming out of the box—so we focus on the actual evaluation logic instead of framework code.
-
 ## Core Features
 
 ### Intelligent Resume Analysis
-- **Universal Format Support** - Handles PDF, DOCX, and text files with advanced parsing
-- **LLM-Powered Extraction** - Uses AI models to understand context and extract relevant information
-- **Structured Output** - Converts unstructured resumes into standardized candidate profiles
-- **Smart Field Recognition** - Automatically categorizes skills, experience levels, and project complexity
+- PDF / DOCX / text parsing
+- Structured skills, experience, education
+- Normalized skill grouping
 
 ### Advanced GitHub Analysis  
-- **Repository Intelligence** - Analyzes code quality, project complexity, and documentation standards
-- **Job-Specific Filtering** - Identifies repositories most relevant to the target role
-- **Activity Pattern Assessment** - Evaluates coding consistency, contribution frequency, and collaboration
-- **Technology Stack Mapping** - Maps programming languages and frameworks to job requirements
-- **Code Quality Metrics** - Assesses best practices, project structure, and community engagement
+- Repo relevance + activity
+- Language / stack map
+- Contribution & quality hints
 
-### Smart Job Matching
-- **AI-Powered Scoring** - Multi-dimensional analysis considering skills, experience, and GitHub activity
-- **Weighted Evaluation** - Customizable criteria weights based on role importance
-- **Detailed Breakdowns** - Transparent scoring with specific reasoning for each component
-- **Actionable Insights** - Clear recommendations for hiring decisions
+### Smart Matching
+- Weighted scoring (skills, experience, GitHub, education)
+- Clear reasoning lines
 
 ### Automated Workflow
-- **Real-time Processing** - Live streaming of analysis progress with detailed step updates
-- **Email Generation** - Personalized candidate and manager notifications with customizable templates
-- **Interview Scheduling** - Automatic Google Calendar integration with Meet links
-- **Decision Tracking** - Complete audit trail of all hiring decisions and interactions
+- Live step stream
+- Optional email + scheduling
+- Decision log (CSV/JSON)
+
+## Why We Use Portia AI
+Portia AI is the backbone. All agents (planner, resume, GitHub, scheduler) run on it. It orders steps, shares data, calls tools, streams status, and retries on soft failures (like rate limits). Less glue code, easier to add new agents (coding test, ATS export). Tools used: resume_parser, github_scanner, job_matcher, assessment_generator, candidate_tracker, repository/code analyzers, scheduler (calendar + email). Shared context removes manual hand‑offs and keeps an audit trail.
 
 ## How It Works
-
-### 1. File Upload
-Users upload candidate resumes and job descriptions through the web interface. The system supports multiple formats and provides real-time validation.
-
-### 2. Resume Analysis
-The Resume Agent uses LLM models to extract structured data:
-- Personal information and contact details
-- Work experience with role descriptions and durations
-- Educational background and certifications
-- Skills categorized by type and proficiency
-- Projects with technology stacks and descriptions
-
-### 3. GitHub Profile Analysis
-If a GitHub profile is found, the GitHub Agent performs:
-- Repository scanning with relevance scoring
-- Code quality assessment based on documentation, structure, and community engagement
-- Contribution pattern analysis for consistency and activity levels
-- Technology stack identification and mapping to job requirements
-- Project complexity evaluation
-
-### 4. Job Matching & Scoring
-The system performs intelligent matching:
-- **Required Skills Match** (40% weight) - How well candidate skills align with must-have requirements
-- **Experience Alignment** (25% weight) - Relevance of work experience to the role
-- **GitHub Activity** (20% weight) - Quality and consistency of coding contributions
-- **Education Background** (15% weight) - Educational qualifications and certifications
-
-### 5. Decision & Scheduling
-Based on the analysis, recruiters can:
-- Review detailed candidate insights and match scores
-- Make informed hiring decisions with AI recommendations
-- Automatically generate personalized interview invitations
-- Schedule interviews with Google Calendar integration
-- Track all decisions for analytics and improvement
-
-## Sample Analysis Output
-
-### Candidate Profile Analysis
-```json
-{
-  "candidate_name": "Sarah Chen",
-  "email": "sarah.chen@email.com",
-  "github": "https://github.com/sarahdev",
-  "experience_years": 3,
-  "skills": {
-    "programming_languages": ["Python", "JavaScript", "TypeScript"],
-    "frameworks": ["React", "Django", "FastAPI"],
-    "tools": ["Git", "Docker", "AWS", "PostgreSQL"]
-  },
-  "projects_count": 8,
-  "education": "MS Computer Science"
-}
-```
-
-### GitHub Analysis Results
-```json
-{
-  "github_analysis": {
-    "username": "sarahdev",
-    "public_repos": 22,
-    "total_contributions": 1340,
-    "activity_level": "High",
-    "top_languages": ["Python", "JavaScript", "TypeScript"],
-    "relevant_repositories": [
-      {
-        "name": "react-dashboard-app",
-        "relevance_score": 0.92,
-        "languages": ["TypeScript", "React"],
-        "complexity": "Medium-High",
-        "stars": 89,
-        "quality_indicators": ["Good documentation", "Active maintenance", "Clean code structure"]
-      }
-    ],
-    "coding_patterns": ["Modern JavaScript practices", "Component-based architecture", "Test-driven development"]
-  }
-}
-```
-
-### Job Match Scoring
-```json
-{
-  "match_analysis": {
-    "overall_score": 0.84,
-    "score_breakdown": {
-      "required_skills": 0.88,
-      "experience_level": 0.82,
-      "github_activity": 0.91,
-      "education": 0.75
-    },
-    "strengths": [
-      "Strong proficiency in required technologies (React, TypeScript)",
-      "Active GitHub presence with quality projects",
-      "Recent experience with similar tech stack"
-    ],
-    "recommendations": [
-      "Excellent technical candidate - proceed with interview",
-      "Focus interview on system design and scalability",
-      "Discuss react-dashboard-app project in detail"
-    ]
-  }
-}
-```
+1. Upload resume + job description
+2. Parse resume → structured profile
+3. Scan GitHub → repos, activity, languages
+4. Score + show reasons
+5. (Optional) Generate email + scheduling data
+6. Save decision
 
 ## Quick Start
 
@@ -357,14 +221,6 @@ The matching system uses weighted scoring across multiple dimensions:
 - **GitHub Recognition** - Open source contributions are properly evaluated
 - **Professional Communication** - Automated, personalized interview invitations
 - **Transparent Process** - Clear insights into evaluation criteria
-
-## Contributing
-
-We welcome contributions to improve HireBuddy! Areas of focus:
-- **New Integrations** - ATS systems, job boards, assessment platforms
-- **Enhanced Analysis** - Additional code quality metrics, skill detection
-- **UI/UX Improvements** - Frontend enhancements and user experience
-- **Performance Optimization** - Analysis speed and accuracy improvements
 
 ## License
 
